@@ -1,11 +1,11 @@
-// Oturum bazlı izin ve bildirim yardımcıları.
-// Kanca akışını durdurmamak için okuma/silme hataları sessizce yutulur.
+// Session-based permission and notification helpers.
+// Read/delete errors are swallowed silently so the hook flow does not stop.
 
 import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DATA_DIR } from "./paths.mjs";
 
-const BILINMEYEN = "bilinmeyen";
+const BILINMEYEN = "unknown";
 
 const temizle = (deger) => String(deger ?? "")
   .replace(/[^A-Za-z0-9_-]/g, "_")
@@ -17,7 +17,7 @@ export function oturumId(ctx) {
   try {
     adaylar.push(ctx?.sessionManager?.getSessionId?.());
   } catch {
-    // getSessionId hata verirse sonraki kaynağa düş
+    // if getSessionId throws, fall back to the next source
   }
   adaylar.push(ctx?.sessionId, process.env.PI_SESSION_ID);
 
@@ -55,7 +55,7 @@ const atomikYaz = (yol, metin) => {
     try {
       unlinkSync(gecici);
     } catch {
-      // geçici dosya zaten yoksa geç
+      // if the temporary file does not exist, pass
     }
     throw hata;
   }
@@ -90,7 +90,7 @@ export function izinSil(id) {
   try {
     unlinkSync(izinYolu(id));
   } catch {
-    // dosya yoksa veya silinemezse sessiz geç
+    // if the file does not exist or cannot be deleted, pass silently
   }
 }
 
@@ -110,7 +110,7 @@ export function bildirimTemizle(id) {
   try {
     unlinkSync(bildirimYolu(id));
   } catch {
-    // dosya yoksa veya silinemezse sessiz geç
+    // if the file does not exist or cannot be deleted, pass silently
   }
 }
 

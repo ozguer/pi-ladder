@@ -54,36 +54,36 @@ const gorulenKumesi = (gorulen) => {
 };
 
 export function istekKredisi({ correctionFree, work, key, gorulen, simdi, pencereMs } = {}) {
-  if (!correctionFree) return { kabul: false, delta: 0, sebep: "duzeltildi" };
-  if (!work) return { kabul: false, delta: 0, sebep: "is yok" };
+  if (!correctionFree) return { kabul: false, delta: 0, sebep: "corrected" };
+  if (!work) return { kabul: false, delta: 0, sebep: "no work" };
 
   if (gorulen instanceof Map) {
     const an = Number.isFinite(Number(simdi)) ? Number(simdi) : Date.now();
     const pencere = Number.isFinite(Number(pencereMs)) ? Number(pencereMs) : PENCERE_MS;
     if (gorulen.has(key) && an - zaman(gorulen.get(key)) < pencere) {
-      return { kabul: false, delta: 0, sebep: "tekrar" };
+      return { kabul: false, delta: 0, sebep: "duplicate" };
     }
     gorulen.set(key, an);
     return { kabul: true, delta: 1 };
   }
 
   const gorulenler = gorulenKumesi(gorulen);
-  if (gorulenler.has(key)) return { kabul: false, delta: 0, sebep: "tekrar" };
+  if (gorulenler.has(key)) return { kabul: false, delta: 0, sebep: "duplicate" };
   return { kabul: true, delta: 1 };
 }
 
 export function meritKredisi({ kaynak, key, gorulen, istekToplam } = {}) {
   const gorulenler = gorulenKumesi(gorulen);
-  if (gorulenler.has(key)) return { kabul: false, delta: 0, sebep: "tekrar" };
+  if (gorulenler.has(key)) return { kabul: false, delta: 0, sebep: "duplicate" };
   if (!Object.prototype.hasOwnProperty.call(POLITIKA.odul, kaynak)) {
-    return { kabul: false, delta: 0, sebep: "bilinmeyen kaynak" };
+    return { kabul: false, delta: 0, sebep: "unknown source" };
   }
   const taban = POLITIKA.odul[kaynak];
   const onceki = sayi(istekToplam);
   const kalanLimit = Math.max(0, POLITIKA.tavan.istekMerit - onceki);
   const delta = Math.min(taban, kalanLimit);
-  if (delta <= 0) return { kabul: false, delta: 0, sebep: "tavan" };
-  if (delta < taban) return { kabul: true, delta, sebep: "tavan" };
+  if (delta <= 0) return { kabul: false, delta: 0, sebep: "cap" };
+  if (delta < taban) return { kabul: true, delta, sebep: "cap" };
   return { kabul: true, delta };
 }
 

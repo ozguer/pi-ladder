@@ -1,6 +1,6 @@
-// Uçtan uca senaryo koşturucusu: sahte Pi oturumu + gerçek kancalar + gerçek depo.
-// Canlıya YAZMAZ: geçici eve, canlı günlüğün kopyasıyla çalışır.
-// Kullanım: node tools/e2e-senaryo.mjs [--canli-gunluk <yol>]
+// End-to-end scenario runner: fake Pi session + real hooks + real store.
+// Does NOT write to live data: runs in a temporary home with a copy of the live log.
+// Usage: node tools/e2e-senaryo.mjs [--canli-gunluk <path>]
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,7 +36,7 @@ function say(ad, gecti, detay) {
   satirlar.push({ ad, gecti, detay });
 }
 
-// --- Tur koşturucusu: skorcu'nun yaptığı işin aynısı ---
+// --- Turn runner: the same work the scorer does ---
 function tur({ ad, mesajlar, testGecti = false, istekMetni = ad }) {
   const { yargi, olaylar } = kararOlaylari({ mesajlar, testGecti, istekMetni, simdi: Date.now() });
   let yazilan = 0;
@@ -54,87 +54,87 @@ function bekle(ad, kosul, detay) {
   say(ad, Boolean(kosul), detay);
 }
 
-// --- 0. Başlangıç ---
+// --- 0. Initial state ---
 const bas = durumHesapla(olaylariOku(gunluk).olaylar, { simdi: Date.now() });
-console.log(`başlangıç: yetki=${bas.yetki} merit=${bas.merit} rütbe=${rutbe(bas.yetki).name} aktif=${bas.aktif}`);
+console.log(`start: authority=${bas.yetki} merit=${bas.merit} rank=${rutbe(bas.yetki).name} active=${bas.aktif}`);
 
-// --- 1. Temiz iş turu → +1 ---
-const t1 = tur({ ad: "temiz iş", mesajlar: [{ role: "user", content: "x" }, yaz("a.js"), ok("write")] });
-bekle("temiz iş: istek olayı yazıldı", t1.yazilan === 1 && t1.yargi.risk === 0, `yazilan=${t1.yazilan}`);
-// Tavan dolmuşsa yeni kredi yazılmaz (K39): beklenen artış tavan durumuna bağlı.
+// --- 1. Clean work turn → +1 ---
+const t1 = tur({ ad: "clean work", mesajlar: [{ role: "user", content: "x" }, yaz("a.js"), ok("write")] });
+bekle("clean work: request event written", t1.yazilan === 1 && t1.yargi.risk === 0, `written=${t1.yazilan}`);
+// If the cap is full, no new credit is written (K39): expected gain depends on the cap state.
 const tavanDolu = bas.gunluk.isBirimi >= bas.gunluk.tavan;
 bekle(
-  tavanDolu ? "temiz iş: tavan dolu, yetki sabit" : "temiz iş: yetki +1",
+  tavanDolu ? "clean work: cap full, authority unchanged" : "clean work: authority +1",
   t1.durum.yetki === (tavanDolu ? bas.yetki : bas.yetki + 1),
-  `${bas.yetki}→${t1.durum.yetki} (tavan ${bas.gunluk.isBirimi}/${bas.gunluk.tavan})`,
+  `${bas.yetki}->${t1.durum.yetki} (cap ${bas.gunluk.isBirimi}/${bas.gunluk.tavan})`,
 );
 
-// --- 2. Aynı iş tekrar → tekilleştirme (K44) ---
-const t2 = tur({ ad: "temiz iş", mesajlar: [{ role: "user", content: "x" }, yaz("a.js"), ok("write")] });
-bekle("aynı iş tekrar: puan yok", t2.durum.yetki === t1.durum.yetki, `yetki ${t2.durum.yetki} sabit`);
-bekle("aynı iş tekrar: tekrar sayacı", t2.tekrar >= 1, `tekrar=${t2.tekrar}`);
+// --- 2. Same work repeated → deduplication (K44) ---
+const t2 = tur({ ad: "clean work", mesajlar: [{ role: "user", content: "x" }, yaz("a.js"), ok("write")] });
+bekle("same work repeated: no points", t2.durum.yetki === t1.durum.yetki, `authority ${t2.durum.yetki} unchanged`);
+bekle("same work repeated: duplicate counter", t2.tekrar >= 1, `duplicates=${t2.tekrar}`);
 
-// --- 3. Toparlanmış hata → D, tur Durur (K49+K38) ---
+// --- 3. Recovered error → D, turn Stops (K49+K38) ---
 const t3 = tur({
-  ad: "hata+düzeltme",
+  ad: "error+correction",
   mesajlar: [{ role: "user", content: "y" }, yaz("b.js"), hata("write", "SyntaxError: missing ) after argument list"), yaz("b.js"), ok("write")],
 });
 const dVar = t3.yargi.dE.filter((k) => k.grup === "D").length;
 const eVar = t3.yargi.dE.filter((k) => k.grup === "E").length;
-bekle("toparlanmış hata: yalnız D (çift ceza yok)", dVar === 1 && eVar === 0, `D=${dVar} E=${eVar}`);
+bekle("recovered error: only D (no double penalty)", dVar === 1 && eVar === 0, `D=${dVar} E=${eVar}`);
 bekle(
-  "toparlanmış hata: yetki artmadı",
+  "recovered error: authority did not rise",
   t3.durum.yetki === Math.max(0, t2.durum.yetki - 2),
-  `yetki ${t2.durum.yetki}→${t3.durum.yetki} (−2, taban 0)`,
+  `authority ${t2.durum.yetki}->${t3.durum.yetki} (-2, floor 0)`,
 );
-bekle("toparlanmış hata: pasifleşti", t3.durum.aktif === false, `aktif=${t3.durum.aktif}`);
+bekle("recovered error: became passive", t3.durum.aktif === false, `active=${t3.durum.aktif}`);
 
-// --- 4. Pasifken kapı: yazma onay ister, duvar bloklar, izin kapsamı dar ---
+// --- 4. Gate while passive: write asks, wall blocks, grant scope narrow ---
 const pasifKarar = kapiKarari({ toolName: "write", input: { path: "c.js" }, rank: -1, cwd, now: Date.now() });
-bekle("pasif kapı: yazma confirm", pasifKarar.action === "confirm" && /pasif/.test(pasifKarar.reason), pasifKarar.reason);
+bekle("passive gate: write confirm", pasifKarar.action === "confirm" && /passive/.test(pasifKarar.reason), pasifKarar.reason);
 const duvar = kapiKarari({ toolName: "bash", input: { command: "cp a.js C:/Windows/x.js" }, rank: 5, cwd, now: Date.now(), grant: { kapsam: "shell", until: Date.now() + 60000 } });
-bekle("duvar: geçerli izinle bile deny", duvar.action === "deny", `${duvar.action} ${duvar.wall ?? ""}`);
+bekle("wall: deny even with a valid grant", duvar.action === "deny", `${duvar.action} ${duvar.wall ?? ""}`);
 
-// --- 5. Üç temiz tur → aktif geri gelir, tavan yetkiyi sınırlar ---
+// --- 5. Three clean turns → active returns, cap limits authority ---
 const once = t3.durum.yetki;
 let d = t3.durum;
 for (let i = 0; i < 3; i += 1) {
-  const t = tur({ ad: `toparlanma ${i + 1}`, mesajlar: [{ role: "user", content: `z${i}` }, yaz(`r${i}.js`), ok("write")] });
+  const t = tur({ ad: `recovery ${i + 1}`, mesajlar: [{ role: "user", content: `z${i}` }, yaz(`r${i}.js`), ok("write")] });
   d = t.durum;
 }
-bekle("3 temiz tur: aktif geri geldi", d.aktif === true, `aktif=${d.aktif}`);
-bekle("günlük tavan: en çok 3 kredi", d.yetki - once <= POLITIKA.tavan.yetkiGun, `yetki ${once}→${d.yetki} (tavan ${POLITIKA.tavan.yetkiGun})`);
+bekle("3 clean turns: active returned", d.aktif === true, `active=${d.aktif}`);
+bekle("daily cap: at most 3 credits", d.yetki - once <= POLITIKA.tavan.yetkiGun, `authority ${once}->${d.yetki} (cap ${POLITIKA.tavan.yetkiGun})`);
 
-// --- 5b. Öğrenme turu → merit +1 (K: merit ekseni) ---
+// --- 5b. Learning turn → merit +1 (K: merit axis) ---
 const ogrenme = tur({
-  ad: "ogrenme",
-  mesajlar: [{ role: "user", content: "ders yaz" }, yaz("OGRENME/test-dersi.md"), ok("write")],
+  ad: "learning",
+  mesajlar: [{ role: "user", content: "write a lesson" }, yaz("OGRENME/test-dersi.md"), ok("write")],
 });
 bekle(
-  "öğrenme: merit +1",
+  "learning: merit +1",
   ogrenme.durum.merit > d.merit,
-  `merit ${d.merit}→${ogrenme.durum.merit}`,
+  `merit ${d.merit}->${ogrenme.durum.merit}`,
 );
 bekle(
-  "öğrenme: rozet eşiği raporlanıyor",
+  "learning: badge threshold reported",
   ogrenme.durum.merit < 10 ? true : true,
-  `merit ${ogrenme.durum.merit} · sıradaki ${ogrenme.durum.merit >= 10 ? "İz (25)" : "Kıvılcım (10)"}`,
+  `merit ${ogrenme.durum.merit} · next ${ogrenme.durum.merit >= 10 ? "Trace (25)" : "Spark (10)"}`,
 );
 
-// --- 6. Not metni: kısa, skorbord sızdırmaz ---
-const not = notMetni({ yetki: d.yetki, merit: d.merit, rank: d.rank, aktif: d.aktif, izin: "yok", gunluk: d.gunluk });
-bekle("not: 1200 karakterden kısa", not.length < 1200, `${not.length} karakter`);
-bekle("not: yetki satırı doğru", not.includes(`Yetki ${d.yetki} (${rutbe(d.yetki).name})`), not.split("\n")[0]);
-bekle("not: skorbord tablosu yok", !not.includes("| # | Tarih |"), "temiz");
+// --- 6. Note text: short, does not leak the scoreboard ---
+const not = notMetni({ yetki: d.yetki, merit: d.merit, rank: d.rank, aktif: d.aktif, izin: "none", gunluk: d.gunluk });
+bekle("note: shorter than 1200 characters", not.length < 1200, `${not.length} characters`);
+bekle("note: authority line correct", not.includes(`Authority ${d.yetki} (${rutbe(d.yetki).name})`), not.split("\n")[0]);
+bekle("note: no scoreboard table", !not.includes("| # | Date |"), "clean");
 
-// --- Rapor ---
+// --- Report ---
 const kotu = satirlar.filter((s) => !s.gecti);
 console.log("");
 for (const s of satirlar) console.log(`${s.gecti ? "✓" : "✗"} ${s.ad} — ${s.detay}`);
-console.log(`\n${satirlar.length - kotu.length}/${satirlar.length} geçti`);
+console.log(`\n${satirlar.length - kotu.length}/${satirlar.length} passed`);
 if (kotu.length) {
-  console.log("\nBAŞARISIZ:");
+  console.log("\nFAILED:");
   for (const s of kotu) console.log(` - ${s.ad}: ${s.detay}`);
   process.exitCode = 1;
 }
-console.log(`\nson durum: yetki=${d.yetki} merit=${d.merit} rütbe=${rutbe(d.yetki).name} aktif=${d.aktif} günlük=${d.gunluk.isBirimi}/${d.gunluk.tavan}`);
+console.log(`\nfinal state: authority=${d.yetki} merit=${d.merit} rank=${rutbe(d.yetki).name} active=${d.aktif} daily=${d.gunluk.isBirimi}/${d.gunluk.tavan}`);

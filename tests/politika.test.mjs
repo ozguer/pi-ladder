@@ -8,11 +8,11 @@ test("yetki eşikleri tam olarak 0,5,15,30,50,75,105,140", () => {
 
 test("merit eşikleri ve rozet adları sabittir", () => {
   assert.deepEqual(POLITIKA.meritEsikleri, [
-    { ad: "Kıvılcım", merit: 10 },
-    { ad: "İz", merit: 25 },
-    { ad: "Pusula", merit: 45 },
-    { ad: "Fener", merit: 70 },
-    { ad: "Bilge", merit: 100 },
+    { ad: "Spark", merit: 10 },
+    { ad: "Trace", merit: 25 },
+    { ad: "Compass", merit: 45 },
+    { ad: "Lantern", merit: 70 },
+    { ad: "Sage", merit: 100 },
   ]);
 });
 
@@ -26,26 +26,26 @@ test("günlük tavanlar", () => {
 });
 
 test("rutbeAdi indeksleri ve sınır dışını adlandırır", () => {
-  assert.equal(rutbeAdi(0), "bronz");
-  assert.equal(rutbeAdi(2), "altın");
-  assert.equal(rutbeAdi(7), "elmas 5");
+  assert.equal(rutbeAdi(0), "bronze");
+  assert.equal(rutbeAdi(2), "gold");
+  assert.equal(rutbeAdi(7), "diamond 5");
   assert.equal(rutbeAdi(-1), "—");
 });
 
 test("kazanilanRozet merit'in hak ettiği rozeti verir", () => {
   assert.equal(kazanilanRozet(0), null);
   assert.equal(kazanilanRozet(9), null);
-  assert.equal(kazanilanRozet(10), "Kıvılcım");
-  assert.equal(kazanilanRozet(24), "Kıvılcım");
-  assert.equal(kazanilanRozet(25), "İz");
-  assert.equal(kazanilanRozet(100), "Bilge");
-  assert.equal(kazanilanRozet(250), "Bilge");
+  assert.equal(kazanilanRozet(10), "Spark");
+  assert.equal(kazanilanRozet(24), "Spark");
+  assert.equal(kazanilanRozet(25), "Trace");
+  assert.equal(kazanilanRozet(100), "Sage");
+  assert.equal(kazanilanRozet(250), "Sage");
 });
 
 test("sonrakiRozet merit'in üstündeki ilk rozeti verir", () => {
-  assert.deepEqual(sonrakiRozet(9), { ad: "Kıvılcım", merit: 10 });
-  assert.deepEqual(sonrakiRozet(10), { ad: "İz", merit: 25 });
-  assert.deepEqual(sonrakiRozet(24), { ad: "İz", merit: 25 });
+  assert.deepEqual(sonrakiRozet(9), { ad: "Spark", merit: 10 });
+  assert.deepEqual(sonrakiRozet(10), { ad: "Trace", merit: 25 });
+  assert.deepEqual(sonrakiRozet(24), { ad: "Trace", merit: 25 });
   assert.equal(sonrakiRozet(100), null);
 });
 
@@ -61,22 +61,22 @@ test("notMetni altı satır, etiketli ve sınırlı", () => {
   });
   const satirlar = text.trim().split("\n");
   assert.ok(text.length <= 1200, `not ${text.length} karakter`);
-  assert.match(satirlar[0], /Yetki 32/);
-  assert.match(satirlar[0], /sıradaki elmas 1: 0/);
-  assert.match(satirlar[0], /bugün 2\/3 iş birimi/);
+  assert.match(satirlar[0], /Authority 32/);
+  assert.match(satirlar[0], /next diamond 1: 0/);
+  assert.match(satirlar[0], /today 2\/3 work units/);
   assert.match(satirlar[1], /Merit 24/);
-  assert.match(satirlar[1], /rozet Kıvılcım \(10\)/);
-  assert.match(satirlar[1], /sıradaki İz \(25\): 1/);
-  assert.doesNotMatch(text, /Puan:/);
+  assert.match(satirlar[1], /badge Spark \(10\)/);
+  assert.match(satirlar[1], /next Trace \(25\): 1/);
+  assert.doesNotMatch(text, /Points:/);
   assert.equal(satirlar.length, 6);
 });
 
 test("notMetni en üst rütbe ve rozette sıradaki yoktur", () => {
   const text = notMetni({ yetki: 150, merit: 250 });
   const satirlar = text.trim().split("\n");
-  assert.match(satirlar[0], /sıradaki —: 0/);
-  assert.match(satirlar[1], /sıradaki —: 0/);
-  assert.equal(text.match(/sıradaki —: 0/g).length, 2);
+  assert.match(satirlar[0], /next —: 0/);
+  assert.match(satirlar[1], /next —: 0/);
+  assert.equal(text.match(/next —: 0/g).length, 2);
 });
 
 test("iki eksenin sayı kümeleri ayrık", () => {

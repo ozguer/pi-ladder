@@ -32,7 +32,7 @@ test("boş transcript: risk 0, work false, kanıt yok", () => {
     work: false,
     dE: [],
     odul: [],
-    gerekce: "kanıt yok",
+    gerekce: "no evidence",
   });
   assert.deepEqual(yargiCikar(transcriptCikar(null)), yargi);
 });
@@ -47,8 +47,8 @@ test("tek başarılı write: work true ve is: uretildi ödülü", () => {
   const yargi = yargiCikar(cikarim);
   assert.equal(yargi.work, true);
   assert.equal(yargi.risk, 0);
-  const odul = yargi.odul.find((kayit) => kayit.ne === "is: uretildi");
-  assert.deepEqual(odul, { ne: "is: uretildi", kanit: "1 yazma" });
+  const odul = yargi.odul.find((kayit) => kayit.ne === "is: produced");
+  assert.deepEqual(odul, { ne: "is: produced", kanit: "1 write" });
 });
 
 test("isError true sonuç: 1 E kaydı ve dolu kanıt", () => {
@@ -86,12 +86,12 @@ test("K49: hata sonrası aynı dosyaya düzeltme yalnız D üretir, risk 1", () 
   ]);
   assert.equal(cikarim.duzeltmeler.length, 1);
   assert.equal(cikarim.duzeltmeler[0].dosya, "a.js");
-  assert.equal(cikarim.duzeltmeler[0].kanit, "write a.js, hata sonrası düzeltme");
+  assert.equal(cikarim.duzeltmeler[0].kanit, "write a.js, corrected after error");
   const yargi = yargiCikar(cikarim);
   assert.equal(yargi.dE.length, 1);
   assert.equal(yargi.dE[0].grup, "D");
   assert.equal(yargi.dE[0].derece, 1);
-  assert.equal(yargi.dE[0].kanit, "a.js: 1 hata sonrası düzeltme");
+  assert.equal(yargi.dE[0].kanit, "a.js: 1 correction after error");
   assert.equal(yargi.risk, 1);
 });
 
@@ -125,7 +125,7 @@ test("K49: hata var, düzeltme yok: yalnız E, is: uretildi yok", () => {
   );
   assert.equal(yargi.dE.length, 1);
   assert.equal(yargi.dE[0].grup, "E");
-  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: uretildi"), false);
+  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: produced"), false);
 });
 
 test("K49: hata a.js, düzeltme b.js: E kalır, D yok, is: uretildi yok", () => {
@@ -140,7 +140,7 @@ test("K49: hata a.js, düzeltme b.js: E kalır, D yok, is: uretildi yok", () => 
   assert.equal(yargi.dE.filter((kayit) => kayit.grup === "D").length, 0);
   assert.equal(yargi.dE.filter((kayit) => kayit.grup === "E").length, 1);
   assert.equal(yargi.risk, 1);
-  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: uretildi"), false);
+  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: produced"), false);
 });
 
 test("K49: bash hatası (yol yok) hiçbir zaman birleştirilmez, E kalır", () => {
@@ -156,7 +156,7 @@ test("K49: bash hatası (yol yok) hiçbir zaman birleştirilmez, E kalır", () =
   assert.equal(yargi.dE.length, 1);
   assert.equal(yargi.dE[0].grup, "E");
   assert.equal(yargi.dE[0].derece, 2);
-  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: uretildi"), false);
+  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: produced"), false);
 });
 
 test("K49: D varken is: uretildi verilir", () => {
@@ -170,8 +170,8 @@ test("K49: D varken is: uretildi verilir", () => {
   );
   assert.equal(yargi.dE.every((kayit) => kayit.grup === "D"), true);
   assert.deepEqual(
-    yargi.odul.find((kayit) => kayit.ne === "is: uretildi"),
-    { ne: "is: uretildi", kanit: "1 yazma" },
+    yargi.odul.find((kayit) => kayit.ne === "is: produced"),
+    { ne: "is: produced", kanit: "1 write" },
   );
 });
 
@@ -184,7 +184,7 @@ test("K49: E varken is: uretildi verilmez", () => {
     ]),
   );
   assert.equal(yargi.dE.some((kayit) => kayit.grup === "E"), true);
-  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: uretildi"), false);
+  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: produced"), false);
 });
 
 test("K49: testGecti true + E: dogrulama ödülü yine verilir", () => {
@@ -193,8 +193,8 @@ test("K49: testGecti true + E: dogrulama ödülü yine verilir", () => {
   });
   assert.equal(yargi.dE.some((kayit) => kayit.grup === "E"), true);
   assert.deepEqual(
-    yargi.odul.find((kayit) => kayit.ne === "dogrulama: test gecti"),
-    { ne: "dogrulama: test gecti", kanit: "testGecti" },
+    yargi.odul.find((kayit) => kayit.ne === "dogrulama: tests passed"),
+    { ne: "dogrulama: tests passed", kanit: "testGecti" },
   );
 });
 
@@ -210,7 +210,7 @@ test("K49: gerekce birleştirilmiş sayıları yansıtır", () => {
     ]),
     { testGecti: true },
   );
-  assert.equal(yargi.gerekce, "2 yazma, 1 D, 0 E, test geçti");
+  assert.equal(yargi.gerekce, "2 writes, 1 D, 0 E, tests passed");
 });
 
 test("dosyalar sıralı ve tekil; tanınmayan blok throw etmez", () => {
@@ -244,10 +244,10 @@ test("testGecti true: work true ve dogrulama ödülü", () => {
   const yargi = yargiCikar(transcriptCikar([]), { testGecti: true });
   assert.equal(yargi.work, true);
   assert.deepEqual(
-    yargi.odul.find((kayit) => kayit.ne === "dogrulama: test gecti"),
-    { ne: "dogrulama: test gecti", kanit: "testGecti" },
+    yargi.odul.find((kayit) => kayit.ne === "dogrulama: tests passed"),
+    { ne: "dogrulama: tests passed", kanit: "testGecti" },
   );
-  assert.match(yargi.gerekce, /test geçti/);
+  assert.match(yargi.gerekce, /tests passed/);
 });
 
 test("risk varken is: uretildi ödülü verilmez", () => {
@@ -261,7 +261,7 @@ test("risk varken is: uretildi ödülü verilmez", () => {
   const yargi = yargiCikar(cikarim);
   assert.ok(yargi.risk > 0);
   assert.equal(yargi.work, true);
-  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: uretildi"), false);
+  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: produced"), false);
 });
 
 test("kanıtsız hata ve düzeltme cezaya dönüşmez", () => {
@@ -274,7 +274,7 @@ test("kanıtsız hata ve düzeltme cezaya dönüşmez", () => {
   assert.equal(yargi.risk, 0);
   assert.deepEqual(yargi.dE, []);
   assert.equal(yargi.work, false);
-  assert.equal(yargi.gerekce, "kanıt yok");
+  assert.equal(yargi.gerekce, "no evidence");
 });
 
 test("bozuk cikarim throw etmez", () => {
@@ -319,8 +319,8 @@ test("ozetKes: uzun transcript kırpılır, araç satırı korunur", () => {
   const cikti = ozetKes(mesajlar);
   assert.ok(cikti.length <= 1200 + 200, `uzunluk ${cikti.length}`);
   assert.ok(cikti.includes("[tool: write a.txt]"));
-  assert.ok(cikti.includes("[kesildi]"));
-  assert.ok(cikti.startsWith("[kesildi]"));
+  assert.ok(cikti.includes("[truncated]"));
+  assert.ok(cikti.startsWith("[truncated]"));
 });
 
 test("ozetKes: araç sonucu 200 karaktere kırpılır", () => {

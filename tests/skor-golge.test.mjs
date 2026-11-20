@@ -35,7 +35,7 @@ const istek = {
   diffHash: "abc123",
 };
 
-test("isBirimi: farklı oturum aynı anahtarı üretir, oturum alanı farklıdır", () => {
+test("isBirimi: different sessions produce the same key; the session field differs", () => {
   const bir = isBirimi({ ...istek, ctx: { sessionId: "oturum-a" } });
   const iki = isBirimi({ ...istek, ctx: { sessionId: "oturum-b" } });
   assert.equal(bir.key, iki.key);
@@ -44,7 +44,7 @@ test("isBirimi: farklı oturum aynı anahtarı üretir, oturum alanı farklıdı
   assert.ok(!bir.key.includes("oturum-a"));
 });
 
-test("isBirimi: dosya sırası anahtarı değiştirmez, farklı dosya seti değiştirir", () => {
+test("isBirimi: file order does not change the key; a different file set does", () => {
   const ctx = { sessionId: "oturum-a" };
   const duz = isBirimi({ ...istek, ctx });
   const ters = isBirimi({ ...istek, dosyalar: ["b.ts", "a.ts"], ctx });
@@ -53,7 +53,7 @@ test("isBirimi: dosya sırası anahtarı değiştirmez, farklı dosya seti deği
   assert.notEqual(duz.key, farkli.key);
 });
 
-test("golgeKaydet: pencere içinde aynı anahtar tekrar yazılmaz", (t) => {
+test("golgeKaydet: the same key is not written twice within the window", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "golge.jsonl");
   const taban = { yol, tip: "istek", key: "is:tekrar", delta: 1, ctx: { sessionId: "s" } };
@@ -69,7 +69,7 @@ test("golgeKaydet: pencere içinde aynı anahtar tekrar yazılmaz", (t) => {
   assert.equal(olaylariOku(yol).olaylar.length, 1);
 });
 
-test("golgeKaydet: anahtarPenceresi 0 iken aynı anahtar iki kez yazılır (K48)", (t) => {
+test("golgeKaydet: the same key is written twice when anahtarPenceresi is 0 (K48)", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "golge.jsonl");
   const taban = {
@@ -86,7 +86,7 @@ test("golgeKaydet: anahtarPenceresi 0 iken aynı anahtar iki kez yazılır (K48)
   assert.equal(olaylariOku(yol).olaylar.length, 2);
 });
 
-test("golgeKaydet: olay ts ve oturum alanlarıyla dosyaya yazılır", (t) => {
+test("golgeKaydet: the event is written with ts and session fields", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "golge.jsonl");
   golgeKaydet({
@@ -109,7 +109,7 @@ test("golgeKaydet: olay ts ve oturum alanlarıyla dosyaya yazılır", (t) => {
   assert.equal(olaylar[0].oturum, "oturum-x");
 });
 
-test("golgeKaydet: legacy olayda delta yazılmaz", (t) => {
+test("golgeKaydet: no delta is written for a legacy event", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "golge.jsonl");
   golgeKaydet({
@@ -125,7 +125,7 @@ test("golgeKaydet: legacy olayda delta yazılmaz", (t) => {
   assert.equal(Object.prototype.hasOwnProperty.call(olay, "delta"), false);
 });
 
-test("golgeKaydet: anahtarPenceresi verilmezse GOLGE_PENCERE_MS kullanılır", (t) => {
+test("golgeKaydet: GOLGE_PENCERE_MS is used when anahtarPenceresi is omitted", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "golge.jsonl");
   const taban = { yol, tip: "istek", key: "is:pencere", delta: 1, ctx: { sessionId: "s" } };
@@ -137,7 +137,7 @@ test("golgeKaydet: anahtarPenceresi verilmezse GOLGE_PENCERE_MS kullanılır", (
   assert.equal(sonra.yazildi, true);
 });
 
-test("golgeKarsilastir: eşit puan aynı döner", () => {
+test("golgeKarsilastir: equal scores return identical", () => {
   assert.deepEqual(golgeKarsilastir({ eskiPuan: 24, durum: { yetki: 24 } }), {
     ayni: true,
     eski: 24,
@@ -147,7 +147,7 @@ test("golgeKarsilastir: eşit puan aynı döner", () => {
   });
 });
 
-test("golgeKarsilastir: 24 → 50 fark 26, yüzde 108.3", () => {
+test("golgeKarsilastir: 24 -> 50, difference 26, percent 108.3", () => {
   assert.deepEqual(golgeKarsilastir({ eskiPuan: 24, durum: { yetki: 50 } }), {
     ayni: false,
     eski: 24,
@@ -157,13 +157,13 @@ test("golgeKarsilastir: 24 → 50 fark 26, yüzde 108.3", () => {
   });
 });
 
-test("golgeKarsilastir: eskiPuan 0 iken yüzde null", () => {
+test("golgeKarsilastir: percent is null when eskiPuan is 0", () => {
   const sonuc = golgeKarsilastir({ eskiPuan: 0, durum: { yetki: 5 } });
   assert.equal(sonuc.yuzde, null);
   assert.equal(sonuc.fark, 5);
 });
 
-test("golgeKarsilastir: eksik/bozuk girdi 0 sayılır, throw etmez", () => {
+test("golgeKarsilastir: missing/broken input counts as 0, does not throw", () => {
   assert.deepEqual(golgeKarsilastir(undefined), {
     ayni: true,
     eski: 0,
@@ -181,7 +181,7 @@ test("golgeKarsilastir: eksik/bozuk girdi 0 sayılır, throw etmez", () => {
   assert.equal(golgeKarsilastir({ eskiPuan: undefined, durum: { yetki: "50" } }).yeni, 50);
 });
 
-test("golgeLogla: 5 parçalı satır üretir, dosyaya ekler", (t) => {
+test("golgeLogla: produces a 5-part line and appends it to the file", (t) => {
   const dizin = geciciDizin(t);
   const logYolu = join(dizin, "alt", "golge.log");
   const satir = golgeLogla({
@@ -199,7 +199,7 @@ test("golgeLogla: 5 parçalı satır üretir, dosyaya ekler", (t) => {
   assert.equal(readFileSync(logYolu, "utf8"), `${satir}\n`);
 });
 
-test("golgeLogla: yüzde null iken yalnız fark yazılır", (t) => {
+test("golgeLogla: only the difference is written when percent is null", (t) => {
   const dizin = geciciDizin(t);
   const logYolu = join(dizin, "golge.log");
   const satir = golgeLogla({
@@ -209,7 +209,7 @@ test("golgeLogla: yüzde null iken yalnız fark yazılır", (t) => {
   assert.equal(satir.split(" | ")[4], "0");
 });
 
-test("golgeLogla: yazma hatası yutulur, satır yine döner", (t) => {
+test("golgeLogla: write errors are swallowed and the line is still returned", (t) => {
   const dizin = geciciDizin(t);
   const engel = join(dizin, "engel");
   writeFileSync(engel, "dosya");

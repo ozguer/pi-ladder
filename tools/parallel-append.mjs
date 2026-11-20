@@ -15,7 +15,7 @@ const calistirIsci = (dosya, adet) =>
     cocuk.on("error", reject);
     cocuk.on("exit", (kod) => {
       if (kod === 0) resolve();
-      else reject(new Error(`işçi çıkış kodu ${kod}`));
+      else reject(new Error(`worker exit code ${kod}`));
     });
   });
 
@@ -50,7 +50,7 @@ const ebeveyn = async () => {
     const { olaylar } = olaylariOku(dosya);
     const beklenen = isciSayisi * adet;
     const kayip = Math.max(0, beklenen - olaylar.length);
-    console.log(`{yazilan:${olaylar.length}, beklenen:${beklenen}, kayip:${kayip}}`);
+    console.log(`{written:${olaylar.length}, expected:${beklenen}, lost:${kayip}}`);
     if (kayip !== 0) process.exitCode = 1;
   } finally {
     rmSync(dizin, { recursive: true, force: true });

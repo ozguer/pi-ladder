@@ -1,8 +1,8 @@
 // @ts-nocheck
-// user-character skorcu kancası.
-// Tur bitince (agent_settled) ayrı mesaj listesiyle modeli çağırır, kararı olay günlüğüne yazar.
-// SCOREBOARD.md ve ROZET.md olay günlüğünden yeniden üretilen görünümlerdir.
-// Alt ajan/delegation yok. Ana oturumda çalışır, alt ajan oturumunda çalışmaz.
+// user-character scorer hook.
+// When the turn ends (agent_settled) it calls the model with a separate message list and writes the verdict to the event log.
+// SCOREBOARD.md and ROZET.md are views regenerated from the event log.
+// No subagent/delegation. Runs in the main session, not in a subagent session.
 
 import { readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import {
@@ -45,7 +45,7 @@ export default function userCharacterSkorcu(pi) {
       approvedSkillWrite = true;
     });
   } catch {
-    // olay yolu yoksa onay bilgisi HAYIR sayılır
+    // if there is no event path, approval information counts as NO
   }
 
   try {
@@ -54,11 +54,11 @@ export default function userCharacterSkorcu(pi) {
       gateOlaylari.push({ tool: String(data.tool || "?"), karar: String(data.karar || "?"), kapsam: data.toplu ? String(data.kapsam || "toplu") : "" });
     });
   } catch {
-    // olay yolu yoksa kapı bilgisi "yok" sayılır
+    // if there is no event path, gate information counts as "none"
   }
 
   function gateOzeti() {
-    if (!gateOlaylari.length) return "yok (kapıya hiç sorulmadı)";
+    if (!gateOlaylari.length) return "none (gate never consulted)";
     const sayac = new Map();
     for (const olay of gateOlaylari) {
       const key = `${olay.karar}${olay.kapsam ? `(${olay.kapsam})` : ""}: ${olay.tool}`;
@@ -73,7 +73,7 @@ export default function userCharacterSkorcu(pi) {
     try {
       ensureData();
       if (!ctx.model || !ctx.modelRegistry?.complete) {
-        logLine("model-registry-yok");
+        logLine("model-registry-missing");
         return;
       }
 
@@ -86,14 +86,14 @@ export default function userCharacterSkorcu(pi) {
       const addendum = stripFrontmatter(readOptional(SKILL_MD));
 
       const learningState = snapshotLearning();
-      const wroteLearning = lastLearningState === null ? "BİLİNMİYOR" : learningState !== lastLearningState ? "EVET" : "HAYIR";
+      const wroteLearning = lastLearningState === null ? "UNKNOWN" : learningState !== lastLearningState ? "YES" : "NO";
       lastLearningState = learningState;
 
       const istek = {
         messages: [
           {
             role: "user",
-            content: [{ type: "text", text: `${rubric}\n\n---\n\n## Yürürlükteki kurallar (çekirdek)\n\n${core}\n\n## Ek maddeler\n\n${addendum}\n\n---\n\nÖğrenme yazıldı mı: ${wroteLearning}\nSKILL.md yazma onayı: ${approvedSkillWrite ? "EVET" : "HAYIR"}\nSKILL.md yazma kanca tarafından engellendi: ${blocked ? "EVET" : "HAYIR"}\nRütbe kapısı bu turda: ${gateOzeti()}\nEngellenen deneme cezasını kanca yazdı; aynı deneme için ceza yazma.\nOnaylanan veya serbest bırakılan iş ceza değildir.\n\nAşağıdaki turu puanla.\n\n\`\`\`tur\n${text}\n\`\`\`` }],
+            content: [{ type: "text", text: `${rubric}\n\n---\n\n## Rules in effect (core)\n\n${core}\n\n## Additional clauses\n\n${addendum}\n\n---\n\nWas learning written: ${wroteLearning}\nSKILL.md write approval: ${approvedSkillWrite ? "YES" : "NO"}\nSKILL.md write blocked by the hook: ${blocked ? "YES" : "NO"}\nRank gate this turn: ${gateOzeti()}\nThe hook already wrote the penalty for a blocked attempt; do not write a penalty for the same attempt.\nApproved or released work is not a penalty.\n\nScore the following turn.\n\n\`\`\`turn\n${text}\n\`\`\`` }],
           },
         ],
       };
@@ -101,7 +101,7 @@ export default function userCharacterSkorcu(pi) {
       let out = await ctx.modelRegistry.complete(ctx.model, istek, {});
       let answer = textOf(out?.content);
       if (!answer) {
-        // Boş cevap: bir kez daha dene, sonra sessizce geç.
+        // Empty answer: retry once, then move on silently.
         await new Promise((resolve) => setTimeout(resolve, 500));
         out = await ctx.modelRegistry.complete(ctx.model, istek, {});
         answer = textOf(out?.content);
@@ -112,12 +112,12 @@ export default function userCharacterSkorcu(pi) {
         const kinds = Array.isArray(out?.content)
           ? out.content.map((part) => part?.type ?? "?").join(",")
           : typeof out?.content;
-        logLine(`bos-cevap: content=[${kinds}]`);
+        logLine(`empty-answer: content=[${kinds}]`);
         return;
       }
 
       const parsed = parseVerdict(answer);
-      if (!parsed) logLine(`bicim-hatasi: ${answer.replace(/\s+/g, " ").slice(0, 300)}`);
+      if (!parsed) logLine(`format-error: ${answer.replace(/\s+/g, " ").slice(0, 300)}`);
       const verdict = parsed ?? { ceza: [], odul: [], rozet: [] };
       verdict.rozet = [];
 
@@ -131,21 +131,21 @@ export default function userCharacterSkorcu(pi) {
         const temel = kararOlaylari({ mesajlar, testGecti, istekMetni, simdi });
         const itirazlar = itirazCikar({ cevapMetni: { ceza: verdict.ceza } });
         const uygulanan = itirazUygula({ yargi: temel.yargi, itirazlar, mesajlar });
-        for (const red of uygulanan.red) logLine(`itiraz-red: ${red.sebep}`);
+        for (const red of uygulanan.red) logLine(`objection-rejected: ${red.sebep}`);
 
         olaylar = [...temel.olaylar];
 
-        // Duvar ısrarı: aynı gün 3 engellenen deneme → günde bir kez E.
+        // Wall insistence: 3 blocked attempts on the same day → one E per day.
         try {
           const gun = new Date(simdi).toISOString().slice(0, 10);
           const log = readFileSync(SKORCU_LOG, "utf8");
           const duvar = duvarCezasi({ logMetni: log, tarih: gun, ts: simdi });
           if (duvar) {
             olaylar.push(duvar);
-            logLine(`duvar-cezasi: ${duvar.kanit}`);
+            logLine(`wall-penalty: ${duvar.kanit}`);
           }
         } catch {
-          // log okunamazsa ceza yazılmaz (fail-safe)
+          // if the log cannot be read, no penalty is written (fail-safe)
         }
         for (const kabul of uygulanan.kabul) {
           const varMi = olaylar.some(
@@ -171,15 +171,15 @@ export default function userCharacterSkorcu(pi) {
             delta: cezaDeltasi({ grup: "E", derece: 5 }),
             grup: "E",
             derece: 5,
-            kanit: "kanca engelledi",
+            kanit: "hook blocked",
             ts: simdi,
           });
-          logLine("kanca: SKILL.md yazma engellendi, ceza yazildi");
+          logLine("hook: SKILL.md write blocked, penalty written");
         }
 
-        if (wroteLearning === "EVET") {
-          olaylar.push({ tip: "merit", kaynak: "ogrenme", kanit: "OGRENME değişti", ts: simdi });
-          logLine("kanca: ogrenme odulu yazildi (+1)");
+        if (wroteLearning === "YES") {
+          olaylar.push({ tip: "merit", kaynak: "ogrenme", kanit: "LEARNING changed", ts: simdi });
+          logLine("hook: learning reward written (+1)");
         }
 
         const olayYolu = join(DATA_DIR, "skor-olaylar.jsonl");
@@ -187,7 +187,7 @@ export default function userCharacterSkorcu(pi) {
           const pencereMs = olay.tip === "istek" ? PENCERE_MS : olay.tip === "merit" ? Infinity : 0;
           const sonuc = olayYaz(olayYolu, olay, { pencereMs });
           logLine(
-            `olay: ${olay.tip}${olay.grup ? `/${olay.grup}` : ""} ${sonuc?.yazildi ? "yazildi" : "tekrar"} anahtar=${String(olay.anahtar ?? "-").slice(0, 20)}`,
+            `event: ${olay.tip}${olay.grup ? `/${olay.grup}` : ""} ${sonuc?.yazildi ? "written" : "duplicate"} key=${String(olay.anahtar ?? "-").slice(0, 20)}`,
           );
         }
 
@@ -209,10 +209,10 @@ export default function userCharacterSkorcu(pi) {
         writeFileSync(SCOREBOARD, board, "utf8");
         writeFileSync(ROZET_MD, rozet, "utf8");
       } catch (hata) {
-        logLine(`karar-hata: ${hata instanceof Error ? hata.message : String(hata)}`);
+        logLine(`verdict-error: ${hata instanceof Error ? hata.message : String(hata)}`);
       }
 
-      // Keşif ödülü yazıldıysa ajana bir kez tebrik gösterilir.
+      // If a discovery reward was written, show the agent a one-time congratulation.
       const kesif = verdict.odul.find((row) => /^keşif\s*:/i.test(String(row?.ne || "").trim()));
       if (kesif) {
         try {
@@ -231,7 +231,7 @@ export default function userCharacterSkorcu(pi) {
             "utf8",
           );
         } catch {
-          // bildirim yazılamazsa ödül defterde kalır, tebrik görünmez
+          // if the notification cannot be written, the reward stays in the ledger and the congratulation is not shown
         }
       }
       const cezaSayi = olaylar.filter((olay) => olay.tip === "ceza").length;
@@ -239,15 +239,15 @@ export default function userCharacterSkorcu(pi) {
       try {
         pi.events.emit("user-character:score-written", { ceza: cezaSayi, odul: meritSayi, risk: cezaSayi });
       } catch {
-        // olay yolu yoksa rozet kancası tur sonunda senkronlar
+        // if there is no event path, the badge hook syncs at the end of the turn
       }
       if (!olaylar.length) {
-        logLine(`calisti: YOK metin=${text.length}b yetki=${ozet?.yetki ?? "?"}`);
+        logLine(`ran: NONE text=${text.length}b authority=${ozet?.yetki ?? "?"}`);
       } else {
-        logLine(`calisti: olay=${olaylar.length} ceza=${cezaSayi} merit=${meritSayi} yetki=${ozet?.yetki ?? "?"}`);
+        logLine(`ran: events=${olaylar.length} penalties=${cezaSayi} merit=${meritSayi} authority=${ozet?.yetki ?? "?"}`);
       }
     } catch (error) {
-      logLine(`HATA: ${error instanceof Error ? error.message : String(error)}`);
+      logLine(`ERROR: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       busy = false;
       approvedSkillWrite = false;
@@ -267,7 +267,7 @@ function logLine(message) {
     if (previous.length > 200000) previous = previous.slice(-100000);
     writeFileSync(SKORCU_LOG, `${previous}${previous && !previous.endsWith("\n") ? "\n" : ""}${new Date().toISOString()} ${message}\n`);
   } catch {
-    // log yazılamazsa yapacak bir şey yok
+    // if the log cannot be written there is nothing else to do
   }
 }
 
@@ -369,7 +369,7 @@ function toolCalls(content) {
   return out;
 }
 
-// Araç çağrısının yalnız ayırt edici alanı: yol, komut, desen, sorgu.
+// Only the distinguishing field of a tool call: path, command, pattern, query.
 function argOzeti(args) {
   if (!args || typeof args !== "object") return "";
   for (const key of ["path", "command", "pattern", "query", "url", "name"]) {
@@ -398,7 +398,7 @@ function snapshotLearning() {
       parts.push(name);
     }
   } catch {
-    // klasör yoksa yalnız indeks
+    // if the folder does not exist, only the index
   }
   return parts.join("\n");
 }
@@ -415,7 +415,7 @@ function stripBookkeeping(text) {
     .filter((line) => !line.includes("user-character:core"))
     .filter((line) => !line.startsWith("> Ek maddeler:"))
     .join("\n")
-    .replace(/^# Kullanıcı karakter kuralları \(çekirdek\)\s*/m, "# Kullanıcı karakter kuralları\n\n")
+    .replace(/^# Kullanıcı karakter kuralları \(çekirdek\)\s*/m, "# User character rules\n\n")
     .trim();
 }
 

@@ -149,7 +149,7 @@ test("itirazUygula: transkriptte gecmeyen kanit reddedilir, yargi degismez", () 
 
   assert.equal(out.kabul.length, 0);
   assert.equal(out.red.length, 1);
-  assert.equal(out.red[0].sebep, "kanıt transkriptte yok");
+  assert.equal(out.red[0].sebep, "evidence not in transcript");
   assert.deepEqual(out.yargi, yargi);
 });
 
@@ -189,7 +189,7 @@ test("itirazUygula: E eklenince is: uretildi ve seffaflik odulleri suzulur", () 
     diffHash: "d10",
     simdi: SIMDI,
   });
-  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: uretildi"), true);
+  assert.equal(yargi.odul.some((kayit) => kayit.ne === "is: produced"), true);
   assert.equal(yargi.odul.some((kayit) => kayit.ne.startsWith("seffaflik:")), true);
 
   const out = itirazUygula({
@@ -242,9 +242,9 @@ test("duvarCezasi: aynı gün 3 engellenen deneme → bir E", async () => {
   const { duvarCezasi } = await import("../extensions/skor-karar.mjs");
   const gun = "2026-11-20";
   const log = [
-    `${gun}T10:00:00Z | kapi | bash | engellendi | duvar: korumali-yazma`,
-    `${gun}T10:01:00Z | kapi | write | engellendi | duvar: korumali-yazma`,
-    `${gun}T10:02:00Z | kapi | edit | engellendi | duvar: korumali-yazma`,
+    `${gun}T10:00:00Z | gate | bash | blocked | duvar: protected-write`,
+    `${gun}T10:01:00Z | gate | write | blocked | duvar: protected-write`,
+    `${gun}T10:02:00Z | gate | edit | blocked | duvar: protected-write`,
   ].join("\n");
   const ceza = duvarCezasi({ logMetni: log, tarih: gun, ts: 1 });
   assert.ok(ceza, "3 denemede ceza yok");
@@ -257,9 +257,9 @@ test("duvarCezasi: 2 deneme ceza değil, başka gün sayılmaz", async () => {
   const { duvarCezasi } = await import("../extensions/skor-karar.mjs");
   const gun = "2026-11-20";
   const log = [
-    `${gun}T10:00:00Z | kapi | bash | engellendi | duvar: x`,
-    `${gun}T10:01:00Z | kapi | bash | engellendi | duvar: x`,
-    `2026-11-19T10:02:00Z | kapi | bash | engellendi | duvar: x`,
+    `${gun}T10:00:00Z | gate | bash | blocked | duvar: x`,
+    `${gun}T10:01:00Z | gate | bash | blocked | duvar: x`,
+    `2026-11-19T10:02:00Z | gate | bash | blocked | duvar: x`,
   ].join("\n");
   assert.equal(duvarCezasi({ logMetni: log, tarih: gun, ts: 1 }), null);
 });

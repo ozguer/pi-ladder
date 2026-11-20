@@ -2,24 +2,24 @@ export const MARKER = "user-character:bootstrap";
 
 import { SKILL_DIR } from "./paths.mjs";
 
-// Yol sabit değil: kurulumun kendi ev dizininden gelir (taşınabilirlik).
+// The path is not hard-coded: it comes from the installation's own home directory (portability).
 const SKILL_DIR_NOTE = SKILL_DIR;
 
 export function cezaRows(text) {
-  const end = firstMarker(text, ["## Ödül", "## Rozet"]);
-  return tableRows(section(text, "## Ceza", end));
+  const end = firstMarker(text, ["## Rewards", "## Badges"]);
+  return tableRows(section(text, "## Penalties", end));
 }
 
 export function odulRows(text) {
-  return tableRows(section(text, "## Ödül", "## Rozet"));
+  return tableRows(section(text, "## Rewards", "## Badges"));
 }
 
 export function rozetRows(text) {
-  return tableRows(section(text, "## Rozet", null));
+  return tableRows(section(text, "## Badges", null));
 }
 
 export function durumValue(text, label) {
-  const row = tableRows(section(text, "## Durum", "## Ceza")).find((cells) => cells[0] === label);
+  const row = tableRows(section(text, "## State", "## Penalties")).find((cells) => cells[0] === label);
   return row ? (row[1] ?? "") : "";
 }
 
@@ -32,21 +32,21 @@ export function lastRows(rows, count) {
 }
 
 export function learningEntries(text) {
-  const block = section(text, "## Kayıtlar", "## ");
+  const block = section(text, "## Records", "## ");
   return block
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.startsWith("- "))
-    .filter((line) => !line.includes("henüz kayıt yok"))
+    .filter((line) => !line.includes("no entries yet"))
     .slice(0, 30);
 }
 
 export function tesvik(ceza, odul, rozet) {
-  if (!ceza && !odul && !rozet) return "Defter temiz.";
+  if (!ceza && !odul && !rozet) return "Ledger clean.";
   const parts = [];
-  if (odul) parts.push(`${odul} ödül`);
-  if (rozet) parts.push(`${rozet} rozet`);
-  if (ceza) parts.push(`${ceza} ceza`);
+  if (odul) parts.push(`${odul} rewards`);
+  if (rozet) parts.push(`${rozet} badges`);
+  if (ceza) parts.push(`${ceza} penalties`);
   return parts.join(", ") + ".";
 }
 
@@ -59,7 +59,7 @@ export function buildInjection({ scoreboard, learning, rozet, puan, birikim, ris
   const rozetRows2 = badgeLines(rozet || "");
   const titles = learningEntries(learning || "");
   const durumSatiri =
-    birikim === undefined || risk === undefined ? [] : [`Birikim: ${birikim} · Risk: ${risk} (son 10 tur)`];
+    birikim === undefined || risk === undefined ? [] : [`Accumulated: ${birikim} · Risk: ${risk} (last 10 turns)`];
   const rutbeSatiri = rank === undefined ? [] : [rutbeMetni({ rank, tampon, bolge, aktif, temizTur })];
   const olaySatiri = olayMetni({ bolge, sonOlay });
   const turSatiri = sonTurMetni(sonTur);
@@ -68,104 +68,104 @@ export function buildInjection({ scoreboard, learning, rozet, puan, birikim, ris
 
   return [
     MARKER,
-    "Bu metin her istekte basılır. Geçmişe yazılmaz. Kurallar sistem istemindedir.",
+    "This text is printed on every request. It is not written to history. Rules live in the system prompt.",
     ...bildirimBlogu,
     "",
-    "## Skor",
-    `Defter: ceza ${cezaTotal} · ödül ${odulTotal} · Puan: ${puanText} (puan yalnız ödülden; tur = kıdem)`,
+    "## Score",
+    `Ledger: penalties ${cezaTotal} · rewards ${odulTotal} · Points: ${puanText} (points come only from rewards; turns count toward seniority)`,
     ...durumSatiri,
     ...rutbeSatiri,
     ...turSatiri,
     ...riskSatiri,
     ...olaySatiri,
     ...izinSatiri(izin),
-    "Puan yalnız katkıdan: öğrenme +1 · keşif +2 · kurtarma +2 · şeffaflık +1. Ceza: D −2/−5 · E −3/−5 (riskle, 10 turda erir). A/B/C puanı etkilemez. Tur ücreti yok; tur = kıdem.",
+    "Points come only from contribution: learning +1 · discovery +2 · recovery +2 · transparency +1. Penalties: D −2/−5 · E −3/−5 (with risk, melting over 10 turns). A/B/C do not affect points. Turns are free; turns count toward seniority.",
     "",
-    "Son cezalar:",
-    formatRows(lastRows(ceza, 3)) || "(yok)",
-    "Son ödüller:",
-    formatRows(lastRows(odul, 3)) || "(yok)",
+    "Recent penalties:",
+    formatRows(lastRows(ceza, 3)) || "(none)",
+    "Recent rewards:",
+    formatRows(lastRows(odul, 3)) || "(none)",
     "",
     ...rozetRows2,
     "",
-    "## Öğrenme indeksi",
-    titles.length ? titles.join("\n") : "(henüz kayıt yok)",
-    "Eşleşen başlık varsa OGRENME\\<ad>.md dosyasını oku.",
+    "## Learning index",
+    titles.length ? titles.join("\n") : "(no entries yet)",
+    "If a matching title exists, read OGRENME\\<name>.md.",
     "",
-    "## Öğrenmeye teşvik",
-    "Turda tekrar kullanılabilir bir ders çıktıysa (aynı iş akışı, tekrarlayan hata, projeye özel gerçek): indekse satır ekle ve tarifini OGRENME\\<ad>.md dosyasına yaz.",
-    "İyi tarif: ne zaman kullanılır, adımlar, kaç kez doğrulandı, son doğrulama. Böylece aynı işi bir daha düşünmeden yaparsın.",
-    "Kural seviyesine çıkacaksa SKILL.md'ye taşımayı öner; onay ister.",
+    "## Learning prompt",
+    "If the turn produced a reusable lesson (same workflow, repeating error, project-specific fact): add a line to the index and write its recipe to OGRENME\\<name>.md.",
+    "A good recipe: when to use it, the steps, how many times it was verified, last verification. Then you can do the same work again without rethinking.",
+    "If it should become a rule, propose moving it to SKILL.md; it requires approval.",
     "",
-    `Dosyalar: ${SKILL_DIR_NOTE}`,
+    `Files: ${SKILL_DIR_NOTE}`,
   ].join("\n");
 }
 
 export function badgeLines(rozetText) {
   const text = String(rozetText || "");
   if (!text.trim()) {
-    return ["## Rütbe", "Puan: 0 · Rütbe: —", "Rozet puanla kazanılır; kaybedilirse kapılar kapanır."];
+    return ["## Rank", "Points: 0 · Rank: —", "Badges are earned with points; if lost, gates close."];
   }
 
-  const durum = section(text, "## Rütbe", "## Açık kapılar");
+  const durum = section(text, "## Rank", "## Open gates");
   const deger = (label) => {
     const row = tableRows(durum).find((cells) => cells[0] === label);
     return row ? (row[1] ?? "") : "";
   };
 
-  const kapilar = section(text, "## Açık kapılar", "## Sıradaki kapılar")
+  const kapilar = section(text, "## Open gates", "## Next gates")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.startsWith("- "))
     .map((line) => line.slice(2).trim());
 
-  const sonraki = section(text, "## Sıradaki kapılar", "## Geçmiş")
+  const sonraki = section(text, "## Next gates", "## History")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.startsWith("- "))
     .map((line) => line.slice(2).trim());
 
-  const olaylar = tableRows(section(text, "## Geçmiş", null))
-    .filter((cells) => cells[0] && cells[0] !== "Tarih")
+  const olaylar = tableRows(section(text, "## History", null))
+    .filter((cells) => cells[0] && cells[0] !== "Date")
     .slice(-3)
     .map((cells) => `${cells[0]} ${cells[1]} ${cells[2]}`);
 
   const goster = kapilar.slice(0, 4);
-  if (kapilar.length > 4) goster.push(`+${kapilar.length - 4} kapı daha`);
+  if (kapilar.length > 4) goster.push(`+${kapilar.length - 4} more gates`);
 
   return [
-    "## Rütbe",
-    `Puan: ${deger("Puan") || "0"} · Kıdem: ${deger("Kıdem") || "0 temiz tur"} · Rütbe: ${deger("Rütbe") || "—"} · Sıradaki: ${deger("Sıradaki") || "en üst"}`,
-    "Açık kapılar:",
-    ...(goster.length ? goster.map((kapi) => `- ${kapi}`) : ["- (yok)"]),
-    ...(sonraki.length ? [`Sıradaki kapılar:`, ...sonraki.map((kapi) => `- ${kapi}`)] : []),
-    "Elde tutma: son 3 turda D/E yok · tampon ≥5 güvenli · eşik altına düşersen rütbe aynı turda düşer.",
-    "Kazanma: öğrenme +1 · keşif +2 · kurtarma +2 · şeffaflık +1. Tur ücreti yok; tur kıdeme yazılır.",
-    "Kaybedersen bu kapılar aynı turda kapanır. Duvarlar (SKILL.md, global kurulum, silme, ödeme, dış yazma) varsayılan olarak tek tek sorulur; kullanıcı 'Bu oturum + duvarlar' derse oturum boyunca serbest kalır.",
-    ...(olaylar.length ? [`Son olaylar: ${olaylar.join(" · ")}`] : []),
+    "## Rank",
+    `Points: ${deger("Points") || "0"} · Seniority: ${deger("Seniority") || "0 clean turns"} · Rank: ${deger("Rank") || "—"} · Next: ${deger("Next") || "top"}`,
+    "Open gates:",
+    ...(goster.length ? goster.map((kapi) => `- ${kapi}`) : ["- (none)"]),
+    ...(sonraki.length ? [`Next gates:`, ...sonraki.map((kapi) => `- ${kapi}`)] : []),
+    "Retention: no D/E in the last 3 turns · buffer ≥5 safe · if you fall below the threshold, rank drops in the same turn.",
+    "Earning: learning +1 · discovery +2 · recovery +2 · transparency +1. Turns are free; turns count toward seniority.",
+    "If you lose it, these gates close in the same turn. Walls (SKILL.md, global install, deletion, payment, external writes) are asked one by one by default; if the user says 'This session + walls', they stay open for the session.",
+    ...(olaylar.length ? [`Recent events: ${olaylar.join(" · ")}`] : []),
   ];
 }
 
 export function rutbeMetni({ rank, tampon, bolge, aktif, temizTur }) {
-  if (rank === undefined || rank === null) return "Rütbe: —";
-  if (rank < 0) return `Rütbe: — · tampon yok · sıradaki bronz (0 puan · 3 tur)`;
-  const ad = ["bronz", "gümüş", "altın", "elmas 1", "elmas 2", "elmas 3", "elmas 4", "elmas 5"][rank] || `#${rank}`;
-  const durum = aktif ? "aktif" : "askıda (3 temiz tur gerek)";
-  const renk = bolge === "guvenli" ? "güvenli" : bolge === "sari" ? "sarı" : "kırmızı";
+  if (rank === undefined || rank === null) return "Rank: —";
+  if (rank < 0) return `Rank: — · no buffer · next bronze (0 points · 3 turns)`;
+  const ad = ["bronze", "silver", "gold", "diamond 1", "diamond 2", "diamond 3", "diamond 4", "diamond 5"][rank] || `#${rank}`;
+  const durum = aktif ? "active" : "suspended (needs 3 clean turns)";
+  const renk = bolge === "guvenli" ? "safe" : bolge === "sari" ? "yellow" : "red";
   const t = Number.isFinite(tampon) ? tampon : "?";
-  const kıdem = Number.isFinite(temizTur) ? ` · kıdem ${temizTur} tur` : "";
-  return `Rütbe: ${ad} (${durum}) · tampon ${t} (${renk})${kıdem}`;
+  const kıdem = Number.isFinite(temizTur) ? ` · seniority ${temizTur} turns` : "";
+  return `Rank: ${ad} (${durum}) · buffer ${t} (${renk})${kıdem}`;
 }
 
 export function olayMetni({ bolge, sonOlay }) {
   const satirlar = [];
-  if (bolge === "kirmizi") satirlar.push("Uyarı: tampon 0 — bir D/E hatası rütbeyi düşürür.");
+  if (bolge === "kirmizi") satirlar.push("Warning: buffer 0 — one D/E mistake drops the rank.");
   const metin = String(sonOlay || "").trim();
-  if (metin && /askıya alındı|kaybetti/.test(metin)) satirlar.push(`Dikkat: ${metin}`);
+  if (metin && /suspended|lost/.test(metin)) satirlar.push(`Attention: ${metin}`);
   return satirlar;
 }
 
-// Turun neden kazandırdığı/kaybettirdiği: ajan davranışın karşılığını görsün.
+// Why the turn gained/lost points: the agent sees the consequence of its behavior.
 export function sonTurMetni(sonTur) {
   if (!sonTur || typeof sonTur !== "object") return [];
   const ceza = Number(sonTur.ceza) || 0;
@@ -173,23 +173,23 @@ export function sonTurMetni(sonTur) {
   const onceki = Number(sonTur.onceki);
   const simdiki = Number(sonTur.puan);
   const parcalar = [];
-  if (odul > 0) parcalar.push(`+${odul} ödül`);
+  if (odul > 0) parcalar.push(`+${odul} rewards`);
   if (ceza > 0) {
     const satirlar = Array.isArray(sonTur.cezalar) && sonTur.cezalar.length ? ` (${sonTur.cezalar.join(", ")})` : "";
-    parcalar.push(`−${ceza} ceza${satirlar}`);
+    parcalar.push(`−${ceza} penalties${satirlar}`);
   }
-  if (!parcalar.length) parcalar.push("puan değişmedi (tur kıdeme yazıldı)");
-  const gecis = Number.isFinite(onceki) && Number.isFinite(simdiki) ? ` · puan ${onceki} → ${simdiki}` : "";
-  return [`Son tur: ${parcalar.join(" · ")}${gecis}`];
+  if (!parcalar.length) parcalar.push("points unchanged (turn counted toward seniority)");
+  const gecis = Number.isFinite(onceki) && Number.isFinite(simdiki) ? ` · points ${onceki} → ${simdiki}` : "";
+  return [`Last turn: ${parcalar.join(" · ")}${gecis}`];
 }
 
 export function erimeMetni(erime) {
   if (!erime || typeof erime !== "object") return [];
   const risk = Number(erime.risk) || 0;
-  if (!risk) return ["Risk penceresi: temiz (ceza işlemiyor)"];
+  if (!risk) return ["Risk window: clean (no penalties in effect)"];
   const kalan = Number(erime.kalanTur) || 0;
   const geri = Number(erime.geri) || 0;
-  return [`Risk penceresi: ${risk} risk · ${kalan} tur sonra ${geri} puan geri gelir`];
+  return [`Risk window: ${risk} risk · ${kalan} turns later ${geri} points return`];
 }
 
 export function bildirimMetni(bildirim) {
@@ -197,38 +197,38 @@ export function bildirimMetni(bildirim) {
   const rozet = String(bildirim.rozet || "?");
   const puan = Number(bildirim.puan) || 0;
   if (bildirim.tip === "kesif") {
-    const arac = String(bildirim.arac || "yeni yol");
+    const arac = String(bildirim.arac || "new path");
     return [
-      "## Keşif bildirimi",
-      `Tebrik: yeni yol keşfettin — ${arac} (+${puan}). Bunu OGRENME'ye tarif olarak yazarsan +1 daha kazanırsın; aynı işi bir daha düşünmeden yaparsın.`,
+      "## Discovery notice",
+      `Congrats: you found a new path — ${arac} (+${puan}). If you write it as a recipe in OGRENME, you earn +1 more; then you can do the same work again without rethinking.`,
     ];
   }
   if (bildirim.tip === "kaybetti") {
-    return ["## Rütbe bildirimi", `Kayıp: ${rozet} düştü (${puan} puan). Kapılar aynı turda kapandı; puanı eşiğin üstüne çıkarınca geri açılır.`];
+    return ["## Rank notice", `Loss: ${rozet} dropped (${puan} points). Gates closed in the same turn; they reopen when points rise above the threshold.`];
   }
-  return ["## Rütbe bildirimi", `Tebrik: ${rozet} kazandın (${puan} puan). Yeni kapılar istem notunda yazıyor.`];
+  return ["## Rank notice", `Congrats: you earned ${rozet} (${puan} points). New gates are described in the prompt note.`];
 }
 
 export function izinSatiri(izin) {
-  if (!izin || !izin.kapsam) return ["İzin: yok (her komut rütbeye göre sorulur)"];
+  if (!izin || !izin.kapsam) return ["Grant: none (every command is asked by rank)"];
   if (izin.kapsam === "sure" && izin.bitis && Number(izin.bitis) <= Date.now()) {
-    return ["İzin: yok (süre doldu)"];
+    return ["Grant: none (expired)"];
   }
   const ad =
     izin.kapsam === "tek"
-      ? "Bir kez"
+      ? "Once"
       : izin.kapsam === "tur"
-        ? "Bu tur"
+        ? "This turn"
         : izin.kapsam === "sure"
-          ? "15 dakika"
+          ? "15 minutes"
           : izin.kapsam === "oturum+duvar"
-            ? "Oturum + duvarlar"
-            : "Oturum";
+            ? "This session + walls"
+            : "This session";
   const kalan =
     izin.kapsam === "sure" && izin.bitis
-      ? ` · kalan ${Math.max(0, Math.round((Number(izin.bitis) - Date.now()) / 60000))} dk`
+      ? ` · ${Math.max(0, Math.round((Number(izin.bitis) - Date.now()) / 60000))} min left`
       : "";
-  return [`İzin: ${ad}${kalan} — duvarlar ${izin.kapsam === "oturum+duvar" ? "dahil" : "hariç"}`];
+  return [`Grant: ${ad}${kalan} — walls ${izin.kapsam === "oturum+duvar" ? "included" : "excluded"}`];
 }
 
 function firstMarker(text, markers) {
@@ -254,7 +254,7 @@ function tableRows(text) {
     .split(/\r?\n/)
     .filter((line) => line.startsWith("|"))
     .filter((line) => !line.includes("---"))
-    .filter((line) => !line.includes("| # |") && !line.includes("| Ölçü |"))
+    .filter((line) => !line.includes("| # |") && !line.includes("| Metric |"))
     .map((line) => line.split("|").slice(1, -1).map((cell) => cell.trim()))
     .filter((cells) => cells.some(Boolean));
 }

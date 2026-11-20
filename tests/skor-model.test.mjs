@@ -44,7 +44,7 @@ test("K47: istekKredisi Map ile pencereyi, Set ile ömür boyu tekilleştirir", 
   assert.equal(
     istekKredisi({ correctionFree: true, work: true, key: "is:a", gorulen, simdi: T0 + 10 * GUN })
       .sebep,
-    "tekrar",
+    "duplicate",
   );
   assert.deepEqual(
     istekKredisi({ correctionFree: true, work: true, key: "is:a", gorulen, simdi: T0 + 31 * GUN }),
@@ -58,7 +58,7 @@ test("K47: istekKredisi Map ile pencereyi, Set ile ömür boyu tekilleştirir", 
       gorulen: new Set(["is:a"]),
       simdi: T0 + 400 * GUN,
     }).sebep,
-    "tekrar",
+    "duplicate",
   );
 });
 
@@ -123,7 +123,7 @@ test("meritKredisi aynı anahtarı tekrar saymaz", () => {
   const gorulen = new Set(["m:a"]);
   assert.deepEqual(
     meritKredisi({ kaynak: "kesif", key: "m:a", puan: 99, gorulen, istekToplam: 0 }),
-    { kabul: false, delta: 0, sebep: "tekrar" },
+    { kabul: false, delta: 0, sebep: "duplicate" },
   );
 });
 
@@ -140,16 +140,16 @@ test("merit istek tavanı: 1+2+2 toplamı 2'ye kırpılır", () => {
   });
   assert.equal(ogrenme.delta, 1);
   assert.equal(kesif.delta, 1);
-  assert.equal(kesif.sebep, "tavan");
+  assert.equal(kesif.sebep, "cap");
   assert.equal(kurtarma.delta, 0);
-  assert.equal(kurtarma.sebep, "tavan");
+  assert.equal(kurtarma.sebep, "cap");
   assert.equal(ogrenme.delta + kesif.delta + kurtarma.delta, POLITIKA.tavan.istekMerit);
 });
 
 test("meritKredisi bilinmeyen kaynağı reddeder", () => {
   assert.deepEqual(
     meritKredisi({ kaynak: "bilinmez", key: "m:x", puan: 5, gorulen: new Set(), istekToplam: 0 }),
-    { kabul: false, delta: 0, sebep: "bilinmeyen kaynak" },
+    { kabul: false, delta: 0, sebep: "unknown source" },
   );
 });
 
@@ -212,13 +212,13 @@ test("aktif: 4. eski ceza pencereden çıkınca etkilemez", () => {
 });
 
 test("rutbe eşik indeksini ve sıradaki rütbeyi verir", () => {
-  assert.equal(rutbe(0).name, "bronz");
+  assert.equal(rutbe(0).name, "bronze");
   assert.equal(rutbe(0).index, 0);
-  assert.deepEqual(rutbe(0).next, { name: "gümüş", kalan: 5 });
+  assert.deepEqual(rutbe(0).next, { name: "silver", kalan: 5 });
   assert.equal(rutbe(4).index, 0);
-  assert.deepEqual(rutbe(4).next, { name: "gümüş", kalan: 1 });
+  assert.deepEqual(rutbe(4).next, { name: "silver", kalan: 1 });
   assert.equal(rutbe(5).index, 1);
-  assert.equal(rutbe(139).next.name, "elmas 5");
+  assert.equal(rutbe(139).next.name, "diamond 5");
   assert.equal(rutbe(140).index, 7);
   assert.equal(rutbe(140).next, null);
   assert.equal(rutbe(-5).index, 0);
@@ -231,15 +231,15 @@ test("istekKredisi kabul ve ret sebeplerini verir", () => {
   });
   assert.equal(
     istekKredisi({ correctionFree: false, work: true, key: "is:a", gorulen: new Set() }).sebep,
-    "duzeltildi",
+    "corrected",
   );
   assert.equal(
     istekKredisi({ correctionFree: true, work: false, key: "is:a", gorulen: new Set() }).sebep,
-    "is yok",
+    "no work",
   );
   assert.equal(
     istekKredisi({ correctionFree: true, work: true, key: "is:a", gorulen: new Set(["is:a"]) }).sebep,
-    "tekrar",
+    "duplicate",
   );
 });
 

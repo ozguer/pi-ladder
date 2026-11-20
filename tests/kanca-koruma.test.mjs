@@ -50,7 +50,7 @@ test("B15: skill-guard UI yokken engeller (çökmez)", async () => {
     { cwd: kok, hasUI: false },
   );
   assert.equal(sonuc?.block, true);
-  assert.match(sonuc.reason, /onayı yok/i);
+  assert.match(sonuc.reason, /No user approval/i);
 });
 
 test("B15: skill-guard UI varsa ve onay verilirse engellemez", async () => {
@@ -89,6 +89,6 @@ test("B15: skill-guard UI varsa ve onay reddedilirse engeller", async () => {
 
 test("kapsamSecenekleri: pasif rütbede yalnız 'Bir kez' (oturum izni verilemez)", async () => {
   const { kapsamSecenekleri } = await import("./../extensions/user-character-rozet-core.mjs");
-  assert.deepEqual(kapsamSecenekleri(-1), ["Bir kez"]);
-  assert.ok(kapsamSecenekleri(0).includes("Bu oturum"), "bronz ve üstünde kapsam seçenekleri korunur");
+  assert.deepEqual(kapsamSecenekleri(-1), ["Once"]);
+  assert.ok(kapsamSecenekleri(0).includes("This session"), "bronz ve üstünde kapsam seçenekleri korunur");
 });

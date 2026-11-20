@@ -13,7 +13,7 @@ clean work buys freedom, mistakes buy friction — and nothing is earned by clai
 [![runtime](https://img.shields.io/badge/runtime-Node%2020%2B-58a6ff.svg)](package.json)
 [![deps](https://img.shields.io/badge/dependencies-0-58a6ff.svg)](package.json)
 
-**English** · [Türkçe](README.tr.md)
+**English** · [Türkçe](README.tr.md) · [Nederlands](README.nl.md)
 
 </div>
 
@@ -105,12 +105,12 @@ Rewards: `learning +1` · `discovery +2` · `recovery +2` · `transparency +1` (
 Every request, ~300 characters — not 1,500 — injected as context, never as a prompt the model can edit:
 
 ```text
-Yetki 14 (gümüş) · sıradaki altın: 1 · bugün 1/3 iş birimi
-Merit 0 · rozet yok (0) · sıradaki Kıvılcım (10): 10 · tekrar: 0
-Durum: pasif · son istek: —
-İzin: yok
-Kaybedersen: kapılar aynı istekte kapanır; 3 temiz istekte geri gelir
-Kazanma: düzeltmesiz istek +1 yetki · öğrenme +1 · keşif +2 · kurtarma +2
+Authority 14 (silver) · next gold: 1 · today 1/3 work units
+Merit 0 · badge none (0) · next Spark (10): 10 · duplicates: 0
+State: passive · last request: —
+Grant: none
+If you lose it: gates close in the same request; they reopen after 3 clean requests
+Earning: clean request +1 authority · learning +1 merit · discovery +2 merit · recovery +2 merit
 ```
 
 It is a contract, not a nag: the agent knows its current power, the next rung, and the price of the next mistake. When it earns a badge it is told which doors just opened and how many points remain to the next one.
@@ -162,12 +162,16 @@ templates/                      the agent-facing contract files (tr + en)
 All numbers live in one table — `extensions/skor-politika.mjs`:
 
 ```js
-export const POLITIKA = {
-  esikler: [0, 5, 15, 30, 50, 75, 105, 140],   // authority → rank
-  meritEsikleri: [10, 25, 45, 70, 100],        // merit → badge
-  ceza: { D: 2, E: 3, E5: 5 },
-  odul: { ogrenme: 1, kesif: 2, kurtarma: 2, seffaflik: 1 },
-  tavan: { yetkiGun: 3, meritGun: 3, istekMerit: 2 },
+export const POLICY = {
+  thresholds: [0, 5, 15, 30, 50, 75, 105, 140],   // authority → rank
+  meritThresholds: [
+    { name: "Spark", merit: 10 },   { name: "Trace", merit: 25 },
+    { name: "Compass", merit: 45 }, { name: "Lantern", merit: 70 },
+    { name: "Sage", merit: 100 },
+  ],
+  penalties: { D: 2, E: 3, E5: 5 },
+  rewards: { learning: 1, discovery: 2, recovery: 2, transparency: 1 },
+  caps: { authorityPerDay: 3, meritPerDay: 3, meritPerRequest: 2 },
 };
 ```
 

@@ -1,7 +1,7 @@
 // @ts-nocheck
-// Rozet/rütbe kancası: puanı defterden okur, rütbeyi hesaplar, ROZET.md'ye yazar,
-// tool_call kapılarını rütbeye göre uygular.
-// Rozet skor tablosuna yazılmaz; kayıt ROZET.md'deki olay geçmişindedir.
+// Badge/rank hook: reads points from the ledger, computes the rank, writes ROZET.md,
+// and applies tool_call gates according to rank.
+// Badge score is not written to the scoreboard; the record lives in the event history in ROZET.md.
 
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -31,7 +31,7 @@ export default function userCharacterRozet(pi) {
         "utf8",
       );
     } catch {
-      // izin dosyası yazılamazsa not eski durumu gösterir
+      // if the permission file cannot be written, the note shows the old state
     }
   }
 
@@ -39,7 +39,7 @@ export default function userCharacterRozet(pi) {
     try {
       appendFileSync(KAPI_LOG, `${onaySatiri({ tool, karar, kapsam })}\n`, "utf8");
     } catch {
-      // log yazılamazsa akış durmaz
+      // if the log cannot be written, the flow does not stop
     }
   }
 
@@ -51,7 +51,7 @@ export default function userCharacterRozet(pi) {
     }
   }
 
-  // Puan = max(0, birikim − 2 × son 10 turun riski).
+  // Points = max(0, accumulated − 2 × risk of the last 10 turns).
   function readPuan(): number | null {
     try {
       const parsed = JSON.parse(readFileSync(PUAN_STATE, "utf8"));
@@ -59,7 +59,7 @@ export default function userCharacterRozet(pi) {
         return puanDurum(parsed);
       }
     } catch {
-      // tek doğru kaynak okunamıyorsa puan hesaplanmaz
+      // if the single source of truth cannot be read, points are not computed
     }
     return null;
   }
@@ -99,7 +99,7 @@ export default function userCharacterRozet(pi) {
     try {
       writeFileSync(ROZET_STATE, JSON.stringify(state, null, 2), "utf8");
     } catch {
-      // durum yazılamazsa geçmiş bir sonraki senkronda yeniden denenir
+      // if state cannot be written, history is retried on the next sync
     }
   }
 
@@ -117,10 +117,10 @@ export default function userCharacterRozet(pi) {
     if (rank >= 0 && typeof state.aktif === "boolean" && state.aktif !== aktif) {
       gecmis.push({
         tarih,
-        olay: aktif ? "geri açıldı" : "askıya alındı",
+        olay: aktif ? "reopened" : "suspended",
         rozet: RANKS[rank].name,
         puan,
-        sebep: aktif ? "3 temiz tur" : "son 3 turda D/E ihlali",
+        sebep: aktif ? "3 clean turns" : "D/E violation in the last 3 turns",
       });
     }
 
@@ -128,7 +128,7 @@ export default function userCharacterRozet(pi) {
     const tampon = tamponFor(puan, rank);
     const bolge = bolgeFor(tampon);
 
-    // Rütbe değişimi: ajana bir kez gösterilecek bildirim (tebrik veya kayıp).
+    // Rank change: a notification shown to the agent once (congratulation or loss).
     if (Number.isInteger(state.rank) && rank >= 0 && rank !== state.rank) {
       try {
         writeFileSync(
@@ -137,20 +137,20 @@ export default function userCharacterRozet(pi) {
           "utf8",
         );
       } catch {
-        // bildirim yazılamazsa istem notu eski olayı göstermeye devam eder
+        // if the notification cannot be written, the client note keeps showing the old event
       }
     }
 
     try {
       writeFileSync(ROZET_MD, renderRozet({ puan, rank, gecmis: kirpik, tarih, tampon, bolge, aktif, temizTur }), "utf8");
     } catch {
-      // rozet dosyası yazılamazsa akış durmaz
+      // if the badge file cannot be written, the flow does not stop
     }
-    // Defterdeki Puan satırı tek kaynaktan yazılır; ajan iki farklı sayı görmesin.
+    // The Points row in the ledger is written from a single source; the agent should not see two different numbers.
     try {
       if (board.trim()) writeFileSync(SCOREBOARD, boardPuanSenkron(board, puan), "utf8");
     } catch {
-      // defter yazılamazsa rozet ve bülten yine doğru sayıyı taşır
+      // if the ledger cannot be written, the badge and bulletin still carry the correct number
     }
     writeState({ rank, puan, aktif, gecmis: kirpik });
   }
@@ -162,7 +162,7 @@ export default function userCharacterRozet(pi) {
     const state = readState();
     const gecmis = [
       ...state.gecmis,
-      { tarih: new Date().toISOString().slice(0, 10), olay: "kritik", rozet: "—", puan, sebep },
+      { tarih: new Date().toISOString().slice(0, 10), olay: "critical", rozet: "—", puan, sebep },
     ].slice(-EN_FAZLA_GECMIS);
     writeState({ rank: state.rank, puan, gecmis });
     sync();
@@ -185,12 +185,12 @@ export default function userCharacterRozet(pi) {
   try {
     pi.events.on("user-character:score-written", () => sync());
   } catch {
-    // olay yolu yoksa tur sonu senkronu yeter
+    // if there is no event path, the end-of-turn sync is enough
   }
   try {
-    pi.events.on("user-character:skill-write-blocked", () => kritik("onaysız SKILL.md yazma denemesi"));
+    pi.events.on("user-character:skill-write-blocked", () => kritik("unapproved SKILL.md write attempt"));
   } catch {
-    // olay yolu yoksa kritik satır yazılmaz
+    // if there is no event path, the critical row is not written
   }
 
   pi.on("tool_call", async (event, ctx) => {
@@ -202,7 +202,7 @@ export default function userCharacterRozet(pi) {
     const duzenleme = toolName === "edit" || toolName === "write";
     if (duzenleme) {
       const raw = typeof input.path === "string" ? input.path : "";
-      if (raw.trim() && ayniYol(resolve(ctx.cwd, raw), SKILL_MD)) return; // kendi kapısı var
+      if (raw.trim() && ayniYol(resolve(ctx.cwd, raw), SKILL_MD)) return; // has its own gate
     }
 
     const durum = durumHesapla(olaylariOku(join(DATA_DIR, "skor-olaylar.jsonl")).olaylar, { simdi: Date.now() });
@@ -212,41 +212,41 @@ export default function userCharacterRozet(pi) {
     const turSiniri = TUR_DOSYA[Math.max(0, rank)];
     const karar =
       yazmaSinifi && editsThisTurn >= turSiniri
-        ? { action: "confirm", reason: "tur başına dosya sınırı" }
+        ? { action: "confirm", reason: "per-turn file limit" }
         : kapiKarari({ toolName, input, rank, cwd: ctx.cwd, grant, now: Date.now() });
     if (duzenleme) editsThisTurn += 1;
 
-    // Skorcu onay bilgisini görsün: onaylı iş ceza değildir.
+    // Let the scorer see approval information: approved work is not a penalty.
     const bildir = (kararTuru, ek = {}) => {
       try {
         pi.events.emit("user-character:gate", { tool: toolName, karar: kararTuru, ...ek, at: Date.now() });
       } catch {
-        // olay yolu yoksa skorcu kapı bilgisini alamaz
+        // if there is no event path, the scorer cannot receive gate information
       }
     };
 
     if (karar.action === "allow") {
-      if (karar.via === "toplu") bildir("onaylandı", { kapsam: karar.kapsam, toplu: true });
-      else bildir("serbest");
+      if (karar.via === "toplu") bildir("approved", { kapsam: karar.kapsam, toplu: true });
+      else bildir("free");
       return;
     }
 
     if (karar.action === "deny") {
-      bildir("engellendi");
-      const duvarEki = karar.wall ? `duvar: ${karar.wall} — ` : "";
+      bildir("blocked");
+      const duvarEki = karar.wall ? `wall: ${karar.wall} — ` : "";
       return { block: true, reason: `${duvarEki}${karar.reason}` };
     }
 
-    const rutbeAdi = rank >= 0 ? RANKS[rank].name : "yok";
-    const mesaj = `Rütbe: ${rutbeAdi} (puan ${puan})\n${karar.reason}${karar.wall ? "\nDuvarlar tek tek sorulur." : ""}\n\nOnay kapsamı?`;
+    const rutbeAdi = rank >= 0 ? RANKS[rank].name : "none";
+    const mesaj = `Rank: ${rutbeAdi} (score ${puan})\n${karar.reason}${karar.wall ? "\nWalls are asked one by one." : ""}\n\nApproval scope?`;
 
     if (!ctx.hasUI) {
-      // Soracak kimse yok: rütbe kapısı işi durdurmaz, yalnız duvarlar durdurur.
+      // Nobody to ask: the rank gate does not halt work; only walls do.
       if (karar.wall) {
-        bildir("engellendi");
-        return { block: true, reason: `${karar.reason} — onay penceresi yok (rütbe: ${rutbeAdi})` };
+        bildir("blocked");
+        return { block: true, reason: `${karar.reason} — no approval window (rank: ${rutbeAdi})` };
       }
-      bildir("serbest");
+      bildir("free");
       return;
     }
 
@@ -255,18 +255,18 @@ export default function userCharacterRozet(pi) {
     const baslik = kapiBasligi({ rutbeAdi, puan, reason: karar.reason });
     try {
       if (typeof ctx.ui.select !== "function" || secenekler.length < 2) {
-        const uyari = karar.wall ? `${mesaj}\nDuvarlar varsayılan olarak tek tek sorulur.` : mesaj;
-        const onay = await ctx.ui.confirm("Rütbe kapısı", uyari);
+        const uyari = karar.wall ? `${mesaj}\nWalls are asked one by one by default.` : mesaj;
+        const onay = await ctx.ui.confirm("Rank gate", uyari);
         secim = onay ? "tek" : null;
       } else {
         const cevap = await ctx.ui.select(
-          karar.wall ? `${baslik} · YIKICI · kapsam seç` : baslik,
+          karar.wall ? `${baslik} · DESTRUCTIVE · choose scope` : baslik,
           secenekler,
         );
         secim = cevap ? KAPSAM.find((kapsam) => kapsam.ad === cevap)?.id ?? null : null;
         if (cevap && !secim) {
-          // Beklenmeyen cevap: kapsam yerine tek adımlık onay sor, sessizce reddetme.
-          const onay = await ctx.ui.confirm(baslik, "Seçim okunamadı. Yalnız bu adım için izin veriyor musun?");
+          // Unexpected answer: ask for a single-step approval instead of a scope; do not refuse silently.
+          const onay = await ctx.ui.confirm(baslik, "Could not read the selection. Allow only this step?");
           secim = onay ? "tek" : null;
         }
       }
@@ -274,18 +274,18 @@ export default function userCharacterRozet(pi) {
       secim = null;
     }
     if (!secim) {
-      kapiLogla(toolName, "reddedildi", "-");
-      bildir("reddedildi");
-      return { block: true, reason: `Kullanıcı onayı yok — ${karar.reason}` };
+      kapiLogla(toolName, "denied", "-");
+      bildir("denied");
+      return { block: true, reason: `No user approval — ${karar.reason}` };
     }
-    // Yeni kapsam yalnız gerçek bir izin seçildiğinde yazılır; "Bir kez" mevcut izni silmez.
+    // A new scope is written only when a real permission is selected; "Once" does not delete the existing grant.
     const yeniIzin = kapsamOlustur(secim, { turnId });
     if (yeniIzin) {
       grant = yeniIzin;
       yazIzin(grant);
     }
-    kapiLogla(toolName, karar.wall ? "onaylandı-duvar" : "onaylandı", secim);
-    bildir("onaylandı", { kapsam: secim });
+    kapiLogla(toolName, karar.wall ? "approved-wall" : "approved", secim);
+    bildir("approved", { kapsam: secim });
   });
 }
 

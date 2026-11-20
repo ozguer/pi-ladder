@@ -29,7 +29,7 @@ const durum = {
   gunluk: { isBirimi: 1, tavan: 3, tekrar: 2 },
 };
 
-test("notGirdisi: durum alanlarını doğru eşler", () => {
+test("notGirdisi: maps state fields correctly", () => {
   const girdi = notGirdisi({ durum, izin: "hep", son: "+1" });
   assert.equal(girdi.yetki, 7);
   assert.equal(girdi.merit, 12);
@@ -40,7 +40,7 @@ test("notGirdisi: durum alanlarını doğru eşler", () => {
   assert.deepEqual(girdi.gunluk, { isBirimi: 1, tavan: 3, tekrar: 2 });
 });
 
-test("notGirdisi: durum yoksa varsayılanlar (0/0/0/true)", () => {
+test("notGirdisi: defaults when state is missing (0/0/0/true)", () => {
   const girdi = notGirdisi({});
   assert.equal(girdi.yetki, 0);
   assert.equal(girdi.merit, 0);
@@ -49,20 +49,20 @@ test("notGirdisi: durum yoksa varsayılanlar (0/0/0/true)", () => {
   assert.deepEqual(girdi.gunluk, { isBirimi: 0, tavan: 3, tekrar: 0 });
 });
 
-test("notGirdisi: gunluk argümanı durum.gunluk'u geçersiz kılar", () => {
+test("notGirdisi: the gunluk argument overrides durum.gunluk", () => {
   const ozel = { isBirimi: 2, tavan: 3, tekrar: 5 };
   const girdi = notGirdisi({ durum, gunluk: ozel });
   assert.deepEqual(girdi.gunluk, ozel);
 });
 
-test("notGolge: çıktı notMetni ile birebir aynı", () => {
+test("notGolge: output is identical to notMetni", () => {
   const ng = notGolge({ durum, izin: "hep", son: "+1" });
   const beklenen = notMetni(notGirdisi({ durum, izin: "hep", son: "+1" }));
   assert.equal(ng.metin, beklenen);
   assert.equal(ng.uzunluk, beklenen.length);
 });
 
-test("notGolge: normal durumda uzunluk <= 1200 ve uygun true", () => {
+test("notGolge: in a normal state length <= 1200 and fits true", () => {
   const ng = notGolge({ durum, izin: "yok" });
   assert.ok(ng.uzunluk > 0);
   assert.ok(ng.uzunluk <= 1200);
@@ -70,27 +70,27 @@ test("notGolge: normal durumda uzunluk <= 1200 ve uygun true", () => {
   assert.equal(ng.loglandi, false);
 });
 
-test("notGolge: uzun izin metni sınırı aşınca uygun false", () => {
+test("notGolge: fits is false when long grant text exceeds the limit", () => {
   const ng = notGolge({ durum, izin: "x".repeat(1500) });
   assert.ok(ng.uzunluk > 1200);
   assert.equal(ng.uygun, false);
 });
 
-test("notGolge: logYolu verilince '| not |' satırı eklenir", () => {
+test("notGolge: passing logYolu adds a '| note |' line", () => {
   const logYolu = join(ev, "skor-golge.log");
   const ng = notGolge({ durum, eskiMetin: "abc", logYolu, simdi: 0 });
   assert.equal(ng.loglandi, true);
   assert.ok(existsSync(logYolu));
   const satirlar = readFileSync(logYolu, "utf8").trimEnd().split("\n");
   assert.equal(satirlar.length, 1);
-  assert.match(satirlar[0], /\| not \|/);
+  assert.match(satirlar[0], /\| note \|/);
   assert.match(
     satirlar[0],
-    new RegExp(`^1970-01-01T00:00:00\\.000Z \\| not \\| uzunluk=${ng.uzunluk} uygun=true eski=3 fark=${ng.uzunluk - 3}$`),
+    new RegExp(`^1970-01-01T00:00:00\\.000Z \\| note \\| length=${ng.uzunluk} fits=true previous=3 delta=${ng.uzunluk - 3}$`),
   );
 });
 
-test("notGolge: logYolu yazılamazsa loglandi false, throw yok", () => {
+test("notGolge: unwritable logYolu gives logged false, no throw", () => {
   const blok = join(ev, "blok-dosya");
   writeFileSync(blok, "x");
   const logYolu = join(blok, "skor-golge.log");
@@ -103,7 +103,7 @@ test("notGolge: logYolu yazılamazsa loglandi false, throw yok", () => {
   assert.equal(ng.uygun, true);
 });
 
-test("notGolge: bozuk durum (undefined/null) throw etmez, metin üretir", () => {
+test("notGolge: broken state (undefined/null) does not throw, still produces text", () => {
   for (const bozuk of [undefined, null]) {
     let ng;
     assert.doesNotThrow(() => {
@@ -115,7 +115,7 @@ test("notGolge: bozuk durum (undefined/null) throw etmez, metin üretir", () => 
   }
 });
 
-test("duman: user-character.ts sözdizimi geçerli ve import edilebilir", async () => {
+test("smoke: user-character.ts syntax is valid and importable", async () => {
   const mod = await import("../extensions/user-character.ts");
   assert.equal(typeof mod.default, "function");
 });

@@ -26,7 +26,7 @@ const { kapiGolge } = await import("../extensions/skor-kapi-golge.mjs");
 
 const kabuk = (command) => ({ toolName: "bash", input: { command } });
 
-test("eski allow + yeni deny (duvar): uyumlu false, yeni.wall dolu", () => {
+test("old allow + new deny (wall): match false, new.wall populated", () => {
   const kg = kapiGolge({
     ...kabuk("rm -rf /"),
     rank: 2,
@@ -39,7 +39,7 @@ test("eski allow + yeni deny (duvar): uyumlu false, yeni.wall dolu", () => {
   assert.equal(kg.loglandi, false);
 });
 
-test("eski confirm + yeni allow (rank 2 shell): uyumlu false", () => {
+test("old confirm + new allow (rank 2 shell): match false", () => {
   const kg = kapiGolge({
     ...kabuk("npm test"),
     rank: 2,
@@ -50,7 +50,7 @@ test("eski confirm + yeni allow (rank 2 shell): uyumlu false", () => {
   assert.equal(kg.uyumlu, false);
 });
 
-test("aynı karar: uyumlu true", () => {
+test("same decision: match true", () => {
   const kg = kapiGolge({
     toolName: "read",
     input: { path: "src/a.ts" },
@@ -62,7 +62,7 @@ test("aynı karar: uyumlu true", () => {
   assert.equal(kg.uyumlu, true);
 });
 
-test("durum.rank parametreden önce gelir (rank 0 + durum.rank 2 → allow)", () => {
+test("durum.rank comes before the parameter (rank 0 + durum.rank 2 -> allow)", () => {
   const parametre = kapiGolge({
     ...kabuk("npm test"),
     rank: 0,
@@ -82,7 +82,7 @@ test("durum.rank parametreden önce gelir (rank 0 + durum.rank 2 → allow)", ()
   assert.equal(durumlu.uyumlu, false);
 });
 
-test("logYolu verilince '| kapi |' satırı eklenir; dizin yoksa oluşturulur", () => {
+test("passing logYolu adds a '| gate |' line; the directory is created if missing", () => {
   const logYolu = join(ev, "alt", "skor-golge.log");
   assert.equal(existsSync(join(ev, "alt")), false);
   const kg = kapiGolge({
@@ -99,11 +99,11 @@ test("logYolu verilince '| kapi |' satırı eklenir; dizin yoksa oluşturulur", 
   assert.equal(satirlar.length, 1);
   assert.equal(
     satirlar[0],
-    "1970-01-01T00:00:00.000Z | kapi | bash eski=allow → yeni=allow via=- uyumlu=true duvar=-",
+    "1970-01-01T00:00:00.000Z | gate | bash old=allow → new=allow via=- match=true wall=-",
   );
 });
 
-test("alt ajan (PI_SUBAGENT_CHILD=1): yeni null, loglandi false, log yazılmaz", () => {
+test("subagent (PI_SUBAGENT_CHILD=1): new null, logged false, no log written", () => {
   const logYolu = join(ev, "alt-ajan", "skor-golge.log");
   process.env.PI_SUBAGENT_CHILD = "1";
   try {
@@ -123,7 +123,7 @@ test("alt ajan (PI_SUBAGENT_CHILD=1): yeni null, loglandi false, log yazılmaz",
   }
 });
 
-test("bozuk girdi (input null, eskiKarar undefined): throw yok, uyumlu null", () => {
+test("broken input (input null, eskiKarar undefined): no throw, match null", () => {
   let kg;
   assert.doesNotThrow(() => {
     kg = kapiGolge({ toolName: undefined, input: null, eskiKarar: undefined });
@@ -134,7 +134,7 @@ test("bozuk girdi (input null, eskiKarar undefined): throw yok, uyumlu null", ()
   assert.ok(kg.yeni);
 });
 
-test("wall adı logda görünür", () => {
+test("wall name appears in the log", () => {
   const logYolu = join(ev, "duvar", "skor-golge.log");
   const kg = kapiGolge({
     ...kabuk("rm -rf /"),
@@ -146,12 +146,12 @@ test("wall adı logda görünür", () => {
   assert.equal(kg.yeni.action, "deny");
   assert.ok(kg.yeni.wall);
   const satir = readFileSync(logYolu, "utf8").trimEnd();
-  assert.match(satir, /\| kapi \|/);
-  assert.ok(satir.includes(`duvar=${kg.yeni.wall}`));
-  assert.ok(satir.includes("→ yeni=deny"));
+  assert.match(satir, /\| gate \|/);
+  assert.ok(satir.includes(`wall=${kg.yeni.wall}`));
+  assert.ok(satir.includes("→ new=deny"));
 });
 
-test("kapiKarari throw ederse (geçersiz tip) hata dolu döner, throw etmez", () => {
+test("if kapiKarari throws (invalid type), error is populated, nothing is thrown", () => {
   let kg;
   assert.doesNotThrow(() => {
     kg = kapiGolge({

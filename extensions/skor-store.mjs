@@ -30,12 +30,12 @@ const kilitDiziniSil = (yol) => {
     rmdirSync(yol, { recursive: true });
     return;
   } catch {
-    // Node 26 rmdirSync'in recursive seçeneğini kaldırdı; rmSync'e düş.
+    // Node 26 removed the recursive option of rmdirSync; fall back to rmSync.
   }
   try {
     rmSync(yol, { recursive: true, force: true });
   } catch {
-    // kilit zaten yoksa veya başkası devraldıysa sessiz geç
+    // if the lock is already gone or someone else took it over, pass silently
   }
 };
 
@@ -65,14 +65,14 @@ export function kilitAl(yol, { staleMs = 5000, deneme = 5, aralikMs = 50 } = {})
         continue;
       }
     } catch {
-      // kilit bu arada kalktıysa hemen tekrar dene
+      // if the lock was released in the meantime, retry immediately
       continue;
     }
 
     if (i < denemeSayisi) bekle(aralik);
   }
 
-  throw new Error(`kilit alınamadı: ${yol}`);
+  throw new Error(`could not acquire lock: ${yol}`);
 }
 
 const satirSonu = (metin) => metin.endsWith("\n");
@@ -116,7 +116,7 @@ export function olayYaz(yol, olay, { kilit, pencereMs } = {}) {
     if (anahtar !== "") {
       const { olaylar } = olaylariOku(yol);
       const yeniTs = Number.isFinite(Number(olay.ts)) ? Number(olay.ts) : 0;
-      // K48: pencere verilmezse tekilleştirme yapılmaz; her olay yazılır.
+      // K48: if no window is given, no deduplication is done; every event is written.
       const pencere = Number.isFinite(Number(pencereMs)) ? Number(pencereMs) : 0;
       for (const eski of olaylar) {
         if (!eski || String(eski.anahtar ?? "") !== anahtar) continue;
@@ -158,7 +158,7 @@ const atomikYaz = (yol, metin) => {
     try {
       unlinkSync(gecici);
     } catch {
-      // geçici dosya zaten silinmişse geç
+      // if the temporary file is already removed, pass
     }
     throw hata;
   }

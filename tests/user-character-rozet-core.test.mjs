@@ -10,7 +10,7 @@ const board = `# Skorboard
 | Toplam ödül | 2 |
 | Puan | -12 |
 | Rozet | — (sonraki: bronz 5) |
-## Ceza
+## Penalties
 | # | Tarih | Grup | Derece | Kural | İhlal | Kanıt | Puan |
 |---|---|---|---|---|---|---|---|
 | 1 | 2026-11-19 | A | 5 | x | y | z | 5 |
@@ -19,7 +19,7 @@ const board = `# Skorboard
 | 4 | 2026-11-19 | C | 2 | x | y | z | 2 |
 | 5 | 2026-11-19 | C | 1 | x | y | z | 1 |
 | 6 | 2026-11-19 | C | 1 | x | y | z | 1 |
-## Ödül
+## Rewards
 | # | Tarih | Grup | Derece | Ne işe yaradı | Kanıt | Puan |
 |---|---|---|---|---|---|---|
 | 1 | 2026-11-19 | A | 2 | doğru | kanıt | 2 |
@@ -51,19 +51,19 @@ test("rütbe eşikleri: puan ve kıdem birlikte", () => {
 });
 
 test("sıradaki eşik: kalan puan ve kalan tur", () => {
-  assert.deepEqual(nextRank(0, 0), { name: "bronz", puan: 0, tur: 3, kalan: 0, kalanTur: 3 });
-  assert.deepEqual(nextRank(24, 74), { name: "elmas 3", puan: 30, tur: 80, kalan: 6, kalanTur: 6 });
+  assert.deepEqual(nextRank(0, 0), { name: "bronze", puan: 0, tur: 3, kalan: 0, kalanTur: 3 });
+  assert.deepEqual(nextRank(24, 74), { name: "diamond 3", puan: 30, tur: 80, kalan: 6, kalanTur: 6 });
   assert.equal(nextRank(50, 120), null);
 });
 
 test("açık kapı yalnız o rütbeyi gösterir, sonraki rütbe ayrı yazılır", () => {
   assert.equal(doorsText(-1).length, 1);
-  assert.match(doorsText(-1)[0], /kapı yok/);
+  assert.match(doorsText(-1)[0], /no gates/);
   assert.equal(doorsText(0).length, 1);
   assert.equal(doorsText(2).length, 1);
-  assert.match(doorsText(2)[0], /duvar dışı her komut/);
-  assert.doesNotMatch(doorsText(2)[0], /proje komutları/);
-  assert.match(sonrakiKapilar(2)[0], /elmas 1/);
+  assert.match(doorsText(2)[0], /every command outside walls/);
+  assert.doesNotMatch(doorsText(2)[0], /project commands/);
+  assert.match(sonrakiKapilar(2)[0], /diamond 1/);
   assert.equal(sonrakiKapilar(2).length, 2);
   assert.equal(sonrakiKapilar(7).length, 0);
 });
@@ -116,7 +116,7 @@ test("kapı başlığı tek satır ve kısa", () => {
   const uzun = kapiBasligi({ rutbeAdi: "gümüş", puan: 20, reason: "x".repeat(300) });
   assert.ok(uzun.length <= 111);
   assert.ok(!uzun.includes("\n"));
-  assert.equal(KAPSAM.map((k) => k.ad).join("|"), "Bir kez|Bu tur|15 dakika|Bu oturum|Bu oturum + duvarlar");
+  assert.equal(KAPSAM.map((k) => k.ad).join("|"), "Once|This turn|15 minutes|This session|This session + walls");
 });
 
 test("proje komutları gümüşten itibaren serbest, duvarlar değil", () => {
@@ -155,10 +155,10 @@ test("geçmiş: yükselme ve düşme satırları eklenir, ilk kurulumda geçmiş
   assert.deepEqual(historyDelta({ oncekiRank: null, rank: 0, puan: 5, tarih: "2026-11-19", gecmis: bos }), []);
 
   const cikis = historyDelta({ oncekiRank: 0, rank: 2, puan: 30, tarih: "2026-11-19", gecmis: bos });
-  assert.deepEqual(cikis.map((r) => `${r.olay}:${r.rozet}`), ["kazandı:gümüş", "kazandı:altın"]);
+  assert.deepEqual(cikis.map((r) => `${r.olay}:${r.rozet}`), ["won:silver", "won:gold"]);
 
   const inis = historyDelta({ oncekiRank: 2, rank: 0, puan: 10, tarih: "2026-11-19", gecmis: cikis });
-  assert.deepEqual(inis.slice(-2).map((r) => `${r.olay}:${r.rozet}`), ["kaybetti:altın", "kaybetti:gümüş"]);
+  assert.deepEqual(inis.slice(-2).map((r) => `${r.olay}:${r.rozet}`), ["lost:gold", "lost:silver"]);
   assert.equal(inis.length, 4);
 });
 
@@ -255,7 +255,7 @@ test("skorcu metni: bosluk kırpar, tekrarı toplar, boyutu sınırlar", () => {
   assert.match(text, /→ read a\.txt ×2/);
   const sonuc = text.split("\n").find((line) => line.startsWith("← ok:"));
   assert.ok(sonuc.length <= 170);
-  assert.match(text, /← HATA: hata/);
+  assert.match(text, /← ERROR: hata/);
   assert.equal(compactTranscript(items, { maxChars: 40 }).length, 40);
 });
 
@@ -269,14 +269,14 @@ test("rozet kaydı kaybedileni silmez, güncel rütbeyi ve sıradakini yazar", (
       { tarih: "2026-11-19", olay: "kaybetti", rozet: "gümüş", puan: 9, sebep: "ceza" },
     ],
   });
-  assert.match(text, /\| Puan \| 6 \|/);
-  assert.match(text, /\| Kıdem \| 10 temiz tur \|/);
-  assert.match(text, /\| Rütbe \| bronz \|/);
-  assert.match(text, /altın \(2 puan \+ 10 tur kaldı\)/);
+  assert.match(text, /\| Points \| 6 \|/);
+  assert.match(text, /\| Seniority \| 10 clean turns \|/);
+  assert.match(text, /\| Rank \| bronze \|/);
+  assert.match(text, /gold \(2 points \+ 10 turns remaining\)/);
   assert.match(text, /kaybetti/);
-  assert.match(text, /duvarlar/i);
-  assert.match(text, /\| Varsayılan onay \| Bir kez \|/);
-  assert.match(text, /## Sıradaki kapılar/);
+  assert.match(text, /walls/i);
+  assert.match(text, /\| Default approval \| Once \|/);
+  assert.match(text, /## Next gates/);
 });
 
 test("toplu onay kapsamları: tur, süre, oturum", () => {
@@ -285,7 +285,7 @@ test("toplu onay kapsamları: tur, süre, oturum", () => {
   assert.equal(varsayilanKapsam(2), "tur");
   assert.equal(varsayilanKapsam(4), "sure");
   assert.equal(varsayilanKapsam(7), "oturum");
-  assert.equal(kapsamAdi("tur"), "Bu tur");
+  assert.equal(kapsamAdi("tur"), "This turn");
 
   const now = 1000;
   const tur = kapsamOlustur("tur", { turnId: 5 });
@@ -324,12 +324,12 @@ test("toplu onay duvarı açmaz, tur dışına taşmaz", () => {
 });
 
 test("defterdeki Puan satırı tek kaynaktan yazılır", () => {
-  const text = ["# Skor", "", "| Ölçü | Değer |", "|---|---|", "| Toplam ceza | 3 |", "| Toplam ödül | 9 |", "| Puan | 10 |", ""].join("\n");
+  const text = ["# Skor", "", "| Ölçü | Değer |", "|---|---|", "| Toplam ceza | 3 |", "| Toplam ödül | 9 |", "| Points | 10 |", ""].join("\n");
   const out = boardPuanSenkron(text, 33);
-  assert.match(out, /\| Puan \| 33 \|/);
+  assert.match(out, /\| Points \| 33 \|/);
   assert.match(out, /\| Toplam ödül \| 9 \|/);
-  assert.doesNotMatch(out, /\| Puan \| 10 \|/);
-  assert.equal(boardPuanSenkron("| Puan | 10 |", 33), "| Puan | 33 |");
+  assert.doesNotMatch(out, /\| Points \| 10 \|/);
+  assert.equal(boardPuanSenkron("| Points | 10 |", 33), "| Points | 33 |");
 });
 
 
@@ -353,8 +353,8 @@ test("tek seçimi kayıt bırakmaz, oturum iznini silmez", () => {
 
 test("kapı menüsünde duvar seçeneği yalnız altın ve üstünde", () => {
   assert.deepEqual(kapsamSecenekleri(2, { wall: true }).length, 5);
-  assert.equal(kapsamSecenekleri(2, { wall: true }).includes("Bu oturum + duvarlar"), true);
-  assert.equal(kapsamSecenekleri(1, { wall: true }).includes("Bu oturum + duvarlar"), false);
+  assert.equal(kapsamSecenekleri(2, { wall: true }).includes("This session + walls"), true);
+  assert.equal(kapsamSecenekleri(1, { wall: true }).includes("This session + walls"), false);
   assert.equal(kapsamSecenekleri(2, { wall: false }).length, 4);
 });
 
@@ -392,7 +392,7 @@ test("duvar listesi: yorumlayıcı silme, git clean, proje dışı yazma", () =>
 
 test("onay log satırı tek satır ve alanlı", () => {
   const satir = onaySatiri({ tarih: "2026-11-20T10:00:00.000Z", tool: "bash", karar: "onaylandı", kapsam: "oturum" });
-  assert.equal(satir, "2026-11-20T10:00:00.000Z | kapi | bash | onaylandı | oturum");
+  assert.equal(satir, "2026-11-20T10:00:00.000Z | gate | bash | onaylandı | oturum");
 });
 
 

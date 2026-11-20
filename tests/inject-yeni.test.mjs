@@ -57,9 +57,9 @@ const metinler = (mesaj) => {
 const calistir = (messages) => handlerlar.context[0]({ messages }, ctx);
 
 const enjekteMetni = (sonuc) => {
-  assert.ok(sonuc?.messages, "kanca mesaj döndürmedi");
+  assert.ok(sonuc?.messages, "hook returned no message");
   const bulunan = sonuc.messages.find((m) => metinler(m).some((t) => t.includes(MARKER)));
-  assert.ok(bulunan, "MARKER taşıyan enjekte mesaj yok");
+  assert.ok(bulunan, "no injected message carries MARKER");
   return metinler(bulunan).join("\n");
 };
 
@@ -72,46 +72,46 @@ const temizle = () => {
 
 beforeEach(temizle);
 
-test("boş günlük: metin MARKER ile başlar ve Yetki 0 (bronz) içerir", async () => {
+test("empty log: text starts with MARKER and contains Authority 0 (bronze)", async () => {
   const text = enjekteMetni(await calistir([mesaj("selam")]));
-  assert.ok(text.startsWith(`${MARKER}\n`), "metin MARKER ile başlamıyor");
-  assert.match(text, /Yetki 0 \(bronz\)/);
+  assert.ok(text.startsWith(`${MARKER}\n`), "text does not start with MARKER");
+  assert.match(text, /Authority 0 \(bronze\)/);
 });
 
-test("enjekte metin 1200 karakterden kısa", async () => {
+test("injected text is shorter than 1200 characters", async () => {
   const text = enjekteMetni(await calistir([mesaj("selam")]));
   assert.ok(text.length < 1200, `uzunluk ${text.length}`);
 });
 
-test("goc olayı (delta 15, merit 0) Yetki 15 (altın) üretir", async () => {
+test("goc event (delta 15, merit 0) yields Authority 15 (gold)", async () => {
   writeFileSync(
     olayYolu,
     `${JSON.stringify({ tip: "goc", delta: 15, merit: 0, ts: Date.now() })}\n`,
     "utf8",
   );
   const text = enjekteMetni(await calistir([mesaj("selam")]));
-  assert.match(text, /Yetki 15 \(altın\)/);
+  assert.match(text, /Authority 15 \(gold\)/);
 });
 
-test("süresi dolmuş oturum izni İzin: yok gösterir", async () => {
+test("an expired session grant shows Grant: none", async () => {
   izinYaz(OTURUM, "sure", { bitis: Date.now() - 60_000 });
   const text = enjekteMetni(await calistir([mesaj("selam")]));
-  assert.match(text, /İzin: yok/);
+  assert.match(text, /Grant: none/);
 });
 
-test("geçerli oturum izni İzin satırında kapsamı gösterir", async () => {
+test("a valid session grant shows its scope on the Grant line", async () => {
   izinYaz(OTURUM, "oturum");
   const text = enjekteMetni(await calistir([mesaj("selam")]));
-  assert.match(text, /İzin: Oturum/);
+  assert.match(text, /Grant: This session/);
 });
 
-test("enjekte metin skorbord tablosu içermez", async () => {
+test("injected text contains no scoreboard table", async () => {
   const text = enjekteMetni(await calistir([mesaj("selam")]));
-  assert.doesNotMatch(text, /\| # \| Tarih \|/);
-  assert.doesNotMatch(text, /## Skor/);
+  assert.doesNotMatch(text, /\| # \| Date \|/);
+  assert.doesNotMatch(text, /## Score/);
 });
 
-test("MARKER taşıyan mesaj varsa ikinci kez eklenmez", async () => {
+test("if a message carries MARKER, it is not added again", async () => {
   const messages = [mesaj(`${MARKER}\neski not`)];
   const sonuc = await calistir(messages);
   assert.equal(sonuc, undefined);

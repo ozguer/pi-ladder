@@ -1,5 +1,5 @@
-// Ortak yollar ve ilk kurulum.
-// Paket yalnız kod taşır; veri (kurallar, skor, öğrenme, rozet) kullanıcı dizininde kalır.
+// Shared paths and initial setup.
+// The package ships only code; data (rules, score, learning, badges) stays in the user's directory.
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -11,7 +11,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = dirname(here);
 export const AGENT_DIR = join(homedir(), ".pi", "agent");
 
-// Kullanıcıya ait, paket güncellemesinde silinmeyen veri.
+// User-owned data that is not deleted on package upgrades.
 export const DATA_DIR = join(AGENT_DIR, "user-character");
 export const SCOREBOARD = join(DATA_DIR, "SCOREBOARD.md");
 export const ROZET_MD = join(DATA_DIR, "ROZET.md");
@@ -22,17 +22,17 @@ export const ROZET_STATE = join(DATA_DIR, "rozet-durum.json");
 export const PUAN_STATE = join(DATA_DIR, "puan-durum.json");
 export const BLOCKED_MARKER = join(DATA_DIR, "skill-write-blocked.json");
 
-// Kurallar ve skill, Pi'nin kendi keşif yollarında kalır.
+// Rules and skill stay in Pi's own discovery paths.
 export const CORE_MD = join(AGENT_DIR, "APPEND_SYSTEM.md");
 export const SKILL_DIR = join(AGENT_DIR, "skills", "user-character");
 export const SKILL_MD = join(SKILL_DIR, "SKILL.md");
 export const LEGACY_RUBRIC = join(AGENT_DIR, "agents", "skorcu.md");
 
-// Paket içi kaynaklar.
+// Package-internal resources.
 export const RUBRIC = join(PACKAGE_ROOT, "docs", "rubric.md");
 export const TEMPLATES = join(PACKAGE_ROOT, "templates");
 
-// Eski yerleşimden (paket öncesi) veri taşıma.
+// Data migration from the old layout (pre-package).
 const LEGACY = {
   [SCOREBOARD]: join(SKILL_DIR, "SCOREBOARD.md"),
   [ROZET_MD]: join(SKILL_DIR, "ROZET.md"),
@@ -43,7 +43,7 @@ export function ensureData() {
   try {
     mkdirSync(LEARNING_DIR, { recursive: true });
   } catch {
-    // klasör oluşturulamazsa okuma tarafı boş kabul eder
+    // if the folder cannot be created, the read side treats it as empty
   }
 
   const seeds = [
@@ -60,7 +60,7 @@ export function ensureData() {
         copyFileSync(legacy, target);
         continue;
       } catch {
-        // kopyalanamazsa şablonla devam
+        // if it cannot be copied, continue with the template
       }
     }
     const template = join(TEMPLATES, name);
@@ -68,11 +68,11 @@ export function ensureData() {
     try {
       copyFileSync(template, target);
     } catch {
-      // yazılamazsa kanca boş defterle çalışır
+      // if it cannot be written, the hook runs with an empty ledger
     }
   }
 
-  // Eski öğrenme tarifleri
+  // Legacy learning recipes
   try {
     const legacyDir = join(SKILL_DIR, "OGRENME");
     if (existsSync(legacyDir)) {
@@ -82,15 +82,15 @@ export function ensureData() {
         try {
           copyFileSync(join(legacyDir, name), target);
         } catch {
-          // tek dosya atlanır
+          // a single file is skipped
         }
       }
     }
   } catch {
-    // eski klasör yoksa geç
+    // if the old folder does not exist, pass
   }
 
-  // SKILL.md yoksa paket şablonundan kur (kullanıcı sonra düzenler).
+  // If SKILL.md does not exist, install it from the package template (the user edits it later).
   if (!existsSync(SKILL_MD)) {
     const template = join(TEMPLATES, "SKILL.md");
     if (existsSync(template)) {
@@ -98,7 +98,7 @@ export function ensureData() {
         mkdirSync(SKILL_DIR, { recursive: true });
         copyFileSync(template, SKILL_MD);
       } catch {
-        // skill dosyası yoksa kanca yalnız çekirdeği ekler
+        // if the skill file does not exist, the hook adds only the core
       }
     }
   }

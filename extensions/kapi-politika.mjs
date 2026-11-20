@@ -3,14 +3,14 @@ import { POLITIKA } from "./skor-politika.mjs";
 export { POLITIKA };
 
 export const KAPI_METINLERI = [
-  "bronz · okuma serbest",
-  "gümüş · proje komutları (npm, node, python, git) serbest",
-  "altın · duvar dışı her komut serbest",
-  "elmas 1 · duvarlar izinle açılabilir",
-  "elmas 2 · alt ajan onaysız",
-  "elmas 3 · varsayılan onay 15 dakika",
-  "elmas 4 · yeni skill/eklenti taslağı (kurulum onaylı)",
-  "elmas 5 · yıkıcı olmayan her işlem onaysız",
+  "bronze · reads allowed",
+  "silver · project commands (npm, node, python, git) allowed",
+  "gold · every command outside walls allowed",
+  "diamond 1 · walls can be opened with approval",
+  "diamond 2 · subagents without approval",
+  "diamond 3 · default approval 15 minutes",
+  "diamond 4 · new skill/extension draft (install approved)",
+  "diamond 5 · every non-destructive operation without approval",
 ];
 
 export const KORUMALI_VARSAYILAN = [
@@ -439,7 +439,7 @@ function duvarBul({ toolName, args, metinler, cwd }) {
       .filter((deger) => typeof deger === "string")
       .join(" ");
     if (/(?:^|\s)-(delete|exec|ok)(?:\s|$)/i.test(parcalar)) {
-      return { ad: "find-yikici", reason: "find üzerinden yıkıcı işlem" };
+      return { ad: "find-destructive", reason: "destructive operation via find" };
     }
   }
 
@@ -447,27 +447,27 @@ function duvarBul({ toolName, args, metinler, cwd }) {
     const temiz = yorumKes(metin);
 
     if (/\bFormat-Volume\b/i.test(temiz)) {
-      return { ad: "format-volume", reason: "disk biçimlendirme duvarı" };
+      return { ad: "format-volume", reason: "disk formatting wall" };
     }
     if (/\bformat\s+[A-Za-z]:/i.test(temiz)) {
-      return { ad: "format-disk", reason: "disk biçimlendirme duvarı" };
+      return { ad: "format-disk", reason: "disk formatting wall" };
     }
     if (/\bmkfs(?:\.\w+)?\b/i.test(temiz)) {
-      return { ad: "mkfs", reason: "dosya sistemi oluşturma duvarı" };
+      return { ad: "mkfs", reason: "filesystem creation wall" };
     }
     if (/\bdd\b[^\n]*\bof=/i.test(temiz)) {
-      return { ad: "dd-of", reason: "dd çıktı hedefi duvarı" };
+      return { ad: "dd-of", reason: "dd output target wall" };
     }
     if (forkBombasi(temiz)) {
-      return { ad: "fork-bomb", reason: "fork bombası duvarı" };
+      return { ad: "fork-bomb", reason: "fork bomb wall" };
     }
 
     for (const parca of kabukParcala(temiz)) {
       if (kokSilme(parca)) {
-        return { ad: "kok-silme", reason: "kök dizini silme duvarı" };
+        return { ad: "root-delete", reason: "root directory delete wall" };
       }
       if (findYikici(parca)) {
-        return { ad: "find-yikici", reason: "find üzerinden yıkıcı işlem" };
+        return { ad: "find-destructive", reason: "destructive operation via find" };
       }
 
       const hedefler = yazmaHedefleriCikar(parca);
@@ -475,8 +475,8 @@ function duvarBul({ toolName, args, metinler, cwd }) {
       if (korumaliHedef !== undefined) {
         const removeItem = /\bRemove-Item\b/i.test(parca);
         return {
-          ad: removeItem ? "remove-item" : "korumali-yazma",
-          reason: `korumalı hedefe yazma: ${korumaliHedef}`,
+          ad: removeItem ? "remove-item" : "protected-write",
+          reason: `write to protected target: ${korumaliHedef}`,
         };
       }
     }
@@ -484,7 +484,7 @@ function duvarBul({ toolName, args, metinler, cwd }) {
 
   for (const hedef of [...yazmaAracHedefleri(args), ...(typeof args.path === "string" ? [args.path] : [])]) {
     if (korumaliYol(hedef) || korumaliYol(coz(hedef, cwd))) {
-      return { ad: "korumali-yazma", reason: `korumalı hedefe yazma: ${hedef}` };
+      return { ad: "protected-write", reason: `write to protected target: ${hedef}` };
     }
   }
 
@@ -500,7 +500,7 @@ function kapsamKapsar(kapsam, { toolName, sinif }) {
     if (deger instanceof Set) return [...deger].some(kontrol);
     const metin = String(deger).trim().toLowerCase();
     if (!metin) return false;
-    if (["*", "all", "hepsi", "tümü", "tumu", "her"].includes(metin)) return true;
+    if (["*", "all", "any", "everything"].includes(metin)) return true;
     return arananlar.includes(metin);
   };
 
@@ -550,13 +550,13 @@ export function kapiKarari({ toolName, input, rank, cwd, grant, now } = {}) {
   }
 
   if (grantGecerli(grant, { toolName, sinif: politika.sinif, now })) {
-    return { action: "allow", via: "grant", reason: `geçerli izin: ${grant.kapsam}` };
+    return { action: "allow", via: "grant", reason: `valid grant: ${grant.kapsam}` };
   }
 
   if (politika.sinif === "shell") {
     const metin = metinler[0] ?? "";
     const parcalar = kabukParcala(yorumKes(metin));
-    if (!parcalar.length) return { action: "confirm", reason: "boş veya okunamayan komut" };
+    if (!parcalar.length) return { action: "confirm", reason: "empty or unreadable command" };
 
     const hedefler = [];
     for (const parca of parcalar) {
@@ -566,55 +566,55 @@ export function kapiKarari({ toolName, input, rank, cwd, grant, now } = {}) {
     }
 
     if (hedefler.length) {
-      if (!cwd) return { action: "confirm", reason: "yazma hedefi var ama cwd yok" };
+      if (!cwd) return { action: "confirm", reason: "write target exists but cwd is missing" };
       const disarida = hedefler.filter((hedef) => !cwdIcinde(cwd, hedef));
       if (disarida.length) {
-        return { action: "confirm", reason: `proje dışına yazma: ${disarida[0]}` };
+        return { action: "confirm", reason: `write outside project: ${disarida[0]}` };
       }
     }
 
     if (!hedefler.length && parcalar.every(okumaKomutu)) {
-      return { action: "allow", reason: "okuma komutu serbest" };
+      return { action: "allow", reason: "read command allowed" };
     }
 
     if (rutbe >= 2) {
-      return { action: "allow", via: "rank", reason: "altın ve üstü: duvar dışı komut serbest" };
+      return { action: "allow", via: "rank", reason: "gold and above: commands outside walls allowed" };
     }
 
     if (rutbe >= 1 && parcalar.every(izinliKomut)) {
-      return { action: "allow", via: "rank", reason: "gümüş: izinli komut serbest" };
+      return { action: "allow", via: "rank", reason: "silver: allowed command permitted" };
     }
 
-    return { action: "confirm", reason: rutbe < 0 ? "pasif: komut onay ister" : "komut bu rütbede onay ister" };
+    return { action: "confirm", reason: rutbe < 0 ? "passive: command requires approval" : "command requires approval at this rank" };
   }
 
   if (politika.sinif === "yazma") {
     const hedefler = yazmaAracHedefleri(args);
     if (!hedefler.length) {
-      return { action: "confirm", reason: "yazma hedefi okunamadı" };
+      return { action: "confirm", reason: "write target unreadable" };
     }
 
-    if (!cwd) return { action: "confirm", reason: "cwd yok: yazma onay ister" };
+    if (!cwd) return { action: "confirm", reason: "cwd missing: write requires approval" };
 
     const cozulmus = hedefler.map((hedef) => coz(hedef, cwd));
     const disarida = cozulmus.filter((hedef) => !cwdIcinde(cwd, hedef));
     if (disarida.length) {
-      return { action: "confirm", reason: `proje dışına yazma: ${disarida[0]}` };
+      return { action: "confirm", reason: `write outside project: ${disarida[0]}` };
     }
 
     if (rutbe >= 1) {
-      return { action: "allow", via: "rank", reason: "proje içi yazma serbest" };
+      return { action: "allow", via: "rank", reason: "project-internal write allowed" };
     }
 
-    return { action: "confirm", reason: rutbe < 0 ? "pasif: yazma onay ister" : "bronz: yazma onay ister" };
+    return { action: "confirm", reason: rutbe < 0 ? "passive: write requires approval" : "bronze: write requires approval" };
   }
 
   if (politika.sinif === "diger") {
     if (rutbe >= 1) {
-      return { action: "allow", via: "rank", reason: "bu araç rütbeyle serbest" };
+      return { action: "allow", via: "rank", reason: "this tool is allowed by rank" };
     }
-    return { action: "confirm", reason: rutbe < 0 ? "pasif: bu araç onay ister" : "bu araç onay ister" };
+    return { action: "confirm", reason: rutbe < 0 ? "passive: this tool requires approval" : "this tool requires approval" };
   }
 
-  return { action: "allow", reason: "okuma serbest" };
+  return { action: "allow", reason: "read allowed" };
 }

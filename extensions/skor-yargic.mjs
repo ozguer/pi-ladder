@@ -1,6 +1,6 @@
 const YAZMA_ARACLARI = new Set(["edit", "write", "patch", "apply_patch"]);
-// Hata deseni: düz "Error" ile başlayan satırlar YETMİYOR — gerçek transcript'te
-// "SyntaxError: missing ) after argument list", "TypeError", "ENOENT" gibi biçimler geliyor.
+// Error pattern: lines starting with a plain "Error" are NOT enough — real transcripts
+// carry forms such as "SyntaxError: missing ) after argument list", "TypeError", "ENOENT".
 const HATA_DESENI =
   /(^|\n)\s*(\w*Error|error:|Hata|hata:|Traceback)|exit code [1-9]|\bE(NOENT|ACCES|PERM|EXIST|NOTDIR|ISDIR|TIMEDOUT|CONNREFUSED|BUSY|NOSPC)\b|[Cc]ommand not found|[Kk]omut bulunamadı/;
 const BLOK_TIPLERI = {
@@ -11,7 +11,7 @@ const BLOK_TIPLERI = {
   tool_result: "sonuc",
 };
 
-const bosSonuc = () => ({ risk: 0, work: false, dE: [], odul: [], gerekce: "kanıt yok" });
+const bosSonuc = () => ({ risk: 0, work: false, dE: [], odul: [], gerekce: "no evidence" });
 
 const sayi = (deger) => {
   const n = Number(deger);
@@ -130,7 +130,7 @@ function olaylariCoz(messages) {
     try {
       mesajCoz(mesaj, olaylar);
     } catch {
-      // Tanınmayan mesaj atlanır; transcript okuma hiçbir koşulda durmaz.
+      // Unknown message is skipped; transcript reading never stops under any condition.
     }
   }
 
@@ -205,7 +205,7 @@ export function transcriptCikar(messages) {
           hataliYollar.delete(yol);
           cikarim.duzeltmeler.push({
             dosya: yol,
-            kanit: `${olay.ad} ${yol}, hata sonrası düzeltme`,
+            kanit: `${olay.ad} ${yol}, corrected after error`,
             sira: adim++,
           });
         }
@@ -296,7 +296,7 @@ export function yargiCikar(cikarim, secenekler) {
       dE.push({
         grup: "D",
         derece: Math.min(5, derece),
-        kanit: `${duzeltme.dosya || "?"}: ${derece} hata sonrası düzeltme`,
+        kanit: `${duzeltme.dosya || "?"}: ${derece} correction after error`,
       });
     }
 
@@ -320,16 +320,16 @@ export function yargiCikar(cikarim, secenekler) {
 
     const odul = [];
     if (yazma >= 1 && !eVar) {
-      odul.push({ ne: "is: uretildi", kanit: `${yazma} yazma` });
+      odul.push({ ne: "is: produced", kanit: `${yazma} write` });
     }
     if (testGecti) {
-      odul.push({ ne: "dogrulama: test gecti", kanit: "testGecti" });
+      odul.push({ ne: "dogrulama: tests passed", kanit: "testGecti" });
     }
     if (istekler.length > 0 && !eVar) {
-      odul.push({ ne: "seffaflik: istek kaydi", kanit: `${istekler.length} istek` });
+      odul.push({ ne: "seffaflik: request recorded", kanit: `${istekler.length} requests` });
     }
-    // Öğrenme ödülü (merit ekseni): OGRENME/ altına yazılan dosya kanıttır.
-    // E varsa verilmez (K49: toparlanmamış hata ödülü keser).
+    // Learning reward (merit axis): a file written under OGRENME/ is the evidence.
+    // Not granted if E exists (K49: unrecovered error cuts the reward).
     const ogrenmeDosyalari = (cikarim?.yazilanDosyalar ?? []).filter((yol) =>
       /(^|[\\/])OGRENME[\\/]/i.test(String(yol ?? "")),
     );
@@ -345,8 +345,8 @@ export function yargiCikar(cikarim, secenekler) {
 
     const dSayi = dE.filter((kayit) => kayit.grup === "D").length;
     const eSayi = dE.filter((kayit) => kayit.grup === "E").length;
-    const testMetni = testGecti ? "test geçti" : "test yok";
-    const gerekce = `${yazma} yazma, ${dSayi} D, ${eSayi} E, ${testMetni}`;
+    const testMetni = testGecti ? "tests passed" : "no tests";
+    const gerekce = `${yazma} writes, ${dSayi} D, ${eSayi} E, ${testMetni}`;
 
     return { risk, work, dE, odul, gerekce };
   } catch {
@@ -421,7 +421,7 @@ export function ozetKes(messages, secenekler) {
     const govdeler = satirlar
       .filter((satir) => satir.koru || satir.govde.length > 0)
       .map((satir) => `${satir.on}${satir.govde}`);
-    const cikti = kesildi ? ["[kesildi]", ...govdeler].join("\n") : govdeler.join("\n");
+    const cikti = kesildi ? ["[truncated]", ...govdeler].join("\n") : govdeler.join("\n");
     return cikti;
   } catch {
     return "";

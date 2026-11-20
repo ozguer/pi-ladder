@@ -84,7 +84,7 @@ after(() => {
   rmSync(KOK, { recursive: true, force: true });
 });
 
-test("work:false risk:0 → iş olayı yazılmaz (yazilan:0)", async () => {
+test("work:false risk:0 -> no work event written (written:0)", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const sonuc = golgeIsle(taban({ work: false, verdict: { ceza: [], odul: [] } }));
@@ -95,7 +95,7 @@ test("work:false risk:0 → iş olayı yazılmaz (yazilan:0)", async () => {
   assert.ok(sonuc.karsilastirma && typeof sonuc.karsilastirma === "object");
 });
 
-test("work:true risk:0 → iş olayı yazılır, karşılaştırma dolu", async () => {
+test("work:true risk:0 -> work event written, comparison populated", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const sonuc = golgeIsle(taban());
@@ -113,7 +113,7 @@ test("work:true risk:0 → iş olayı yazılır, karşılaştırma dolu", async 
   assert.equal(istekler[0].delta, 1);
 });
 
-test("aynı girdi iki kez → ikinci çağrıda tekrar:1 (30 gün penceresi)", async () => {
+test("same input twice -> duplicate:1 on the second call (30-day window)", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const birinci = golgeIsle(taban());
@@ -125,7 +125,7 @@ test("aynı girdi iki kez → ikinci çağrıda tekrar:1 (30 gün penceresi)", a
   assert.equal(olaylar().filter((olay) => olay.tip === "istek").length, 1);
 });
 
-test("risk:3 → iş olayı ve ceza olayı yazılmaz (cezalar bu turda gölgeye taşınmıyor)", async () => {
+test("risk:3 -> no work or penalty event written (penalties are not forwarded to the shadow this turn)", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const sonuc = golgeIsle(
@@ -144,7 +144,7 @@ test("risk:3 → iş olayı ve ceza olayı yazılmaz (cezalar bu turda gölgeye 
   assert.equal(olaylar().filter((olay) => olay.tip === "ceza").length, 0);
 });
 
-test("alt ajan (PI_SUBAGENT_CHILD=1) → hiçbir şey yazılmaz", async () => {
+test("subagent (PI_SUBAGENT_CHILD=1) -> nothing is written", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   process.env.PI_SUBAGENT_CHILD = "1";
@@ -158,7 +158,7 @@ test("alt ajan (PI_SUBAGENT_CHILD=1) → hiçbir şey yazılmaz", async () => {
   }
 });
 
-test("getEntries throw ederse hata doludur, throw etmez", async () => {
+test("if getEntries throws, error is populated and nothing is thrown", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const bozukCtx = {
@@ -176,7 +176,7 @@ test("getEntries throw ederse hata doludur, throw etmez", async () => {
   assert.match(sonuc.hata, /entries patladı/);
 });
 
-test("verdict.odul ne:'keşif: playwright' → kaynak:'kesif' merit olayı yazılır", async () => {
+test("verdict.odul ne:'keşif: playwright' -> merit event with source:'kesif' is written", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const sonuc = golgeIsle(
@@ -194,7 +194,7 @@ test("verdict.odul ne:'keşif: playwright' → kaynak:'kesif' merit olayı yazı
   assert.match(meritler[0].anahtar, /^ders:kesif:/);
 });
 
-test("golgeLogla satırı skor-golge.log dosyasına eklenir", async () => {
+test("the golgeLogla line is appended to skor-golge.log", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   golgeIsle(taban({ work: false }));
@@ -203,10 +203,10 @@ test("golgeLogla satırı skor-golge.log dosyasına eklenir", async () => {
   const ikinci = readFileSync(LOG_YOLU, "utf8").trim().split("\n").length;
   assert.equal(birinci, 1);
   assert.equal(ikinci, 2);
-  assert.match(readFileSync(LOG_YOLU, "utf8"), /\| golge \|/);
+  assert.match(readFileSync(LOG_YOLU, "utf8"), /\| shadow \|/);
 });
 
-test("duman: user-character-skorcu.ts dinamik import edilebilir, sözdizimi hatası yok", () => {
+test("smoke: user-character-skorcu.ts can be imported dynamically, no syntax error", () => {
   const skorcuYolu = join(TEST_DIR, "..", "extensions", "user-character-skorcu.ts");
   const kod =
     `const m = await import(${JSON.stringify(pathToFileURL(skorcuYolu).href)}); ` +
@@ -253,7 +253,7 @@ const temizYazma = () => [
   },
 ];
 
-test("yargicKarsilastir: toparlanmış hata → D cezası, eskiRisk 2 ile uyumsuz", async () => {
+test("yargicKarsilastir: recovered error -> D penalty, incompatible with eskiRisk 2", async () => {
   const { yargicKarsilastir } = await yukle();
   const sonuc = yargicKarsilastir({
     mesajlar: toparlanmisHata(),
@@ -267,7 +267,7 @@ test("yargicKarsilastir: toparlanmış hata → D cezası, eskiRisk 2 ile uyumsu
   assert.equal(sonuc.farkWork, true);
 });
 
-test("yargicKarsilastir: boş mesajlar → risk 0, work false, throw yok", async () => {
+test("yargicKarsilastir: empty messages -> risk 0, work false, no throw", async () => {
   const { yargicKarsilastir } = await yukle();
   let sonuc;
   assert.doesNotThrow(() => {
@@ -286,7 +286,7 @@ test("yargicKarsilastir: boş mesajlar → risk 0, work false, throw yok", async
   assert.equal(bos.farkWork, false);
 });
 
-test("yargicKarsilastir: eski ve yeni aynı → uyumlu true", async () => {
+test("yargicKarsilastir: old and new agree -> compatible true", async () => {
   const { yargicKarsilastir } = await yukle();
   const sonuc = yargicKarsilastir({
     mesajlar: temizYazma(),
@@ -300,7 +300,7 @@ test("yargicKarsilastir: eski ve yeni aynı → uyumlu true", async () => {
   assert.equal(sonuc.farkWork, false);
 });
 
-test("golgeIsle + mesajlar: E varken iş olayı yazılmaz (yeni yargıç)", async () => {
+test("golgeIsle + messages: no work event when E exists (new judge)", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const sonuc = golgeIsle(taban({ mesajlar: cozulmeyenHata(), risk: 0, work: true }));
@@ -312,7 +312,7 @@ test("golgeIsle + mesajlar: E varken iş olayı yazılmaz (yeni yargıç)", asyn
   assert.equal(olaylar().filter((olay) => olay.tip === "istek").length, 0);
 });
 
-test("golgeIsle + mesajlar: yargic dolu, log'da '| yargic |' satırı var", async () => {
+test("golgeIsle + messages: judge populated, '| judge |' line in log", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const sonuc = golgeIsle(taban({ mesajlar: temizYazma(), risk: 0, work: true }));
@@ -324,12 +324,12 @@ test("golgeIsle + mesajlar: yargic dolu, log'da '| yargic |' satırı var", asyn
   assert.equal(sonuc.yazilan, 1);
 
   const log = readFileSync(LOG_YOLU, "utf8");
-  assert.match(log, /\| yargic \|/);
-  assert.match(log, /eski\(D0\/true\) → yeni\(D0\/true\)/);
-  assert.match(log, /uyumlu=true/);
+  assert.match(log, /\| judge \|/);
+  assert.match(log, /old\(D0\/true\) → new\(D0\/true\)/);
+  assert.match(log, /match=true/);
 });
 
-test("golgeIsle mesajlar olmadan: eski davranış aynı, yargic null", async () => {
+test("golgeIsle without messages: old behavior same, judge null", async () => {
   temizle();
   const { golgeIsle } = await yukle();
 
@@ -351,10 +351,10 @@ test("golgeIsle mesajlar olmadan: eski davranış aynı, yargic null", async () 
   assert.equal(bosCtx.hata, undefined);
   assert.equal(bosCtx.yargic, null);
   assert.equal(bosCtx.yazilan, 1);
-  assert.equal(readFileSync(LOG_YOLU, "utf8").includes("| yargic |"), false);
+  assert.equal(readFileSync(LOG_YOLU, "utf8").includes("| judge |"), false);
 });
 
-test("ctx.sessionManager.getEntries throw → hata yok, yargic null, eski parametreler", async () => {
+test("ctx.sessionManager.getEntries throws -> no error, judge null, old parameters", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const bozukCtx = {
@@ -382,7 +382,7 @@ test("ctx.sessionManager.getEntries throw → hata yok, yargic null, eski parame
   assert.equal(sonuc.yazilan, 0);
 });
 
-test("alt ajan (PI_SUBAGENT_CHILD=1) mesajlar verilse de yazmaz", async () => {
+test("subagent (PI_SUBAGENT_CHILD=1) writes nothing even with messages", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   process.env.PI_SUBAGENT_CHILD = "1";
@@ -396,7 +396,7 @@ test("alt ajan (PI_SUBAGENT_CHILD=1) mesajlar verilse de yazmaz", async () => {
   }
 });
 
-test("mesajlar yoksa ctx.getEntries'ten türetilir, olaylar yeni yargıçla yazılır", async () => {
+test("without messages, events are derived from ctx.getEntries and written by the new judge", async () => {
   temizle();
   const { golgeIsle } = await yukle();
   const ctx = {

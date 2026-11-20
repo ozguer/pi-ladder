@@ -1,13 +1,13 @@
-// Kurulum aracı: pi-user-character paketini bir Pi kurulumuna yerleştirir.
-// Varsayılan KURU ÇALIŞMA'dır; yazmak için --yaz gerekir.
+// Install tool: places the pi-user-character package into a Pi installation.
+// The default is a DRY RUN; pass --yaz to write.
 //
-//   node tools/kur.mjs                       # ne yapılacağını gösterir
-//   node tools/kur.mjs --yaz                 # ~/.pi/agent içine kurar
-//   node tools/kur.mjs --yaz --hedef <dizin> # başka bir Pi kurulumuna
-//   node tools/kur.mjs --yaz --dil tr        # Türkçe şablonlarla (varsayılan: en)
+//   node tools/kur.mjs                       # show what would happen
+//   node tools/kur.mjs --yaz                 # install into ~/.pi/agent
+//   node tools/kur.mjs --yaz --hedef <dir>   # install into another Pi installation
+//   node tools/kur.mjs --yaz --dil tr        # with Turkish templates (default: en)
 //
-// Yaptıkları: yedek al → kancaları kopyala → veri/skill dizinlerini hazırla
-// → eski puan varsa göç olayını yaz (K40/K50) → özet.
+// What it does: take a backup → copy hooks → prepare data/skill directories
+// → write a migration event if an old score exists (K40/K50) → summary.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -26,53 +26,53 @@ const arg = (ad, varsayilan = null) => {
 const yaz = process.argv.includes("--yaz");
 const hedefKok = resolve(arg("--hedef", join(homedir(), ".pi", "agent")));
 const damga = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-const yedekDizin = join(hedefKok, `yedek-kurulum-${damga}`);
+const yedekDizin = join(hedefKok, `backup-install-${damga}`);
 
 const satirlar = [];
 const ekle = (s) => satirlar.push(s);
 
 ekle(`pi-user-character ${SURUM}`);
-ekle(`kaynak : ${KOK}`);
-ekle(`hedef  : ${hedefKok}`);
-ekle(`kipsam : ${yaz ? "YAZ (gerçek kurulum)" : "kuru çalışma (yazmaz)"}`);
+ekle(`source : ${KOK}`);
+ekle(`target : ${hedefKok}`);
+ekle(`mode   : ${yaz ? "WRITE (real install)" : "dry run (no writes)"}`);
 ekle("");
 
-// 1. Kancalar
+// 1. Hooks
 const kaynakExt = join(KOK, "extensions");
 const hedefExt = join(hedefKok, "extensions");
 const extDosyalar = readdirSync(kaynakExt).filter((ad) => ad.endsWith(".ts") || ad.endsWith(".mjs"));
-ekle(`kanca/modül: ${extDosyalar.length} dosya → ${hedefExt}`);
+ekle(`hooks/modules: ${extDosyalar.length} files -> ${hedefExt}`);
 
-// 2. Şablonlar (yalnız yoksa yazılır: ajanın öğrendiği dosyaları ezmez)
+// 2. Templates (written only if missing: does not overwrite files the agent learned)
 const dil = String(arg("--dil", "en")).toLowerCase() === "tr" ? "tr" : "en";
 const kaynakTpl = existsSync(join(KOK, "templates", dil)) ? join(KOK, "templates", dil) : join(KOK, "templates");
 const hedefSkill = join(hedefKok, "skills", "user-character");
 const tplDosyalar = existsSync(kaynakTpl) ? readdirSync(kaynakTpl).filter((ad) => ad.endsWith(".md")) : [];
-ekle(`şablon     : ${tplDosyalar.length} dosya (${dil}) → ${hedefSkill} (yalnız eksikse)`);
+ekle(`templates    : ${tplDosyalar.length} files (${dil}) -> ${hedefSkill} (missing only)`);
 
-// 3. Veri dizini
+// 3. Data directory
 const hedefVeri = join(hedefKok, "user-character");
-ekle(`veri       : ${hedefVeri}`);
-ekle(`taban değer: yetki 0 · merit 0 · günlük tavan ${POLITIKA.tavan.yetkiGun}`);
+ekle(`data         : ${hedefVeri}`);
+ekle(`baseline     : authority 0 · merit 0 · daily cap ${POLITIKA.tavan.yetkiGun}`);
 
-// 4. Göç
+// 4. Migration
 const puanDosyasi = join(hedefKok, "puan-durum.json");
 const eski = eskiDurumOku({ puanDosyasi, scoreboardDosyasi: join(hedefSkill, "SCOREBOARD.md") });
-ekle(`göç        : ${existsSync(puanDosyasi) ? `eski puan ${eski.eskiPuan} → yetki ${eski.yetki} (tavan ${POLITIKA.esikler[2]})` : "eski puan yok → yetki 0"}`);
+ekle(`migration    : ${existsSync(puanDosyasi) ? `old score ${eski.eskiPuan} -> authority ${eski.yetki} (cap ${POLITIKA.esikler[2]})` : "no old score -> authority 0"}`);
 ekle("");
 
 if (!yaz) {
-  ekle("Yazmak için: node tools/kur.mjs --yaz");
+  ekle("To write: node tools/kur.mjs --yaz");
   console.log(satirlar.join("\n"));
   process.exit(0);
 }
 
-// --- Gerçek kurulum ---
+// --- Real install ---
 mkdirSync(hedefExt, { recursive: true });
 mkdirSync(hedefSkill, { recursive: true });
 mkdirSync(hedefVeri, { recursive: true });
 
-// Yedek: dokunacağımız dosyalar
+// Backup: files we will touch
 if (existsSync(hedefExt)) {
   mkdirSync(yedekDizin, { recursive: true });
   for (const ad of readdirSync(hedefExt)) {
@@ -96,28 +96,28 @@ for (const ad of tplDosyalar) {
   }
 }
 
-// Göç olayı (idempotent: aynı göç ikinci kez yazılmaz)
+// Migration event (idempotent: the same migration is not written twice)
 const olayYolu = join(hedefVeri, "skor-olaylar.jsonl");
 const goc = gocYaz({ olayYolu, onceki: eski, simdi: Date.now(), kuruCalisma: false });
 
-// Yedek manifesti
+// Backup manifest
 writeFileSync(
   join(yedekDizin, "MANIFEST.txt"),
   [
-    `pi-user-character ${SURUM} kurulumu`,
-    `tarih: ${new Date().toISOString()}`,
-    `hedef: ${hedefKok}`,
-    `yedeklenen: ${existsSync(yedekDizin) ? readdirSync(yedekDizin).length : 0} dosya`,
+    `pi-user-character ${SURUM} install`,
+    `date: ${new Date().toISOString()}`,
+    `target: ${hedefKok}`,
+    `backed up: ${existsSync(yedekDizin) ? readdirSync(yedekDizin).length : 0} files`,
     "",
   ].join("\n"),
   "utf8",
 );
 
-ekle(`kopyalandı : ${kopyalanan} kanca · ${tplYazilan} yeni şablon`);
-ekle(`yedek      : ${yedekDizin}`);
-ekle(`göç olayı  : ${goc.yazildi ? "yazıldı" : goc.tekrar ? "zaten vardı (tekrar)" : "yazılmadı"} → ${olayYolu}`);
+ekle(`copied       : ${kopyalanan} hooks · ${tplYazilan} new templates`);
+ekle(`backup       : ${yedekDizin}`);
+ekle(`migration event: ${goc.yazildi ? "written" : goc.tekrar ? "already existed (duplicate)" : "not written"} -> ${olayYolu}`);
 ekle("");
-ekle("Sırada: Pi'yi bir kez kapat-aç. Sonra tek istek ver ve şunları gör:");
-ekle("  ~/.pi/agent/user-character/skorcu.log   → calisti: ... yetki=...");
-ekle("  ~/.pi/agent/user-character/SCOREBOARD.md → Durum tablosu");
+ekle("Next: restart Pi once. Then send one request and check:");
+ekle("  ~/.pi/agent/user-character/skorcu.log   -> ran: ... authority=...");
+ekle("  ~/.pi/agent/user-character/SCOREBOARD.md -> state table");
 console.log(satirlar.join("\n"));

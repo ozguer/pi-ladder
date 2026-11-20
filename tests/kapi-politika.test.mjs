@@ -48,7 +48,7 @@ test("git status # rm -rf / rank 0 -> allow (yorum duvar sayılmaz)", () => {
 test("find . -delete rank 0 -> deny", () => {
   const sonuc = karar("find . -delete", { rank: 0 });
   assert.equal(sonuc.action, "deny");
-  assert.equal(sonuc.wall, "find-yikici");
+  assert.equal(sonuc.wall, "find-destructive");
 });
 
 test("cat > ../x rank 1 -> confirm (cwd dışı yazma)", () => {
@@ -266,12 +266,12 @@ test("duvar rank ne olursa olsun geçerlidir", () => {
 test("pasif (rank -1): yazma sebebi 'pasif', 'bronz' değil", () => {
   const sonuc = kapiKarari({ toolName: "write", input: { path: "a.js" }, rank: -1, cwd, now: simdi });
   assert.equal(sonuc.action, "confirm");
-  assert.match(sonuc.reason, /pasif/);
-  assert.doesNotMatch(sonuc.reason, /bronz/);
+  assert.match(sonuc.reason, /passive/);
+  assert.doesNotMatch(sonuc.reason, /bronze/);
 });
 
 test("pasif (rank -1): shell sebebi 'pasif'", () => {
   const sonuc = karar("python zararli.py", { rank: -1 });
   assert.equal(sonuc.action, "confirm");
-  assert.match(sonuc.reason, /pasif/);
+  assert.match(sonuc.reason, /passive/);
 });

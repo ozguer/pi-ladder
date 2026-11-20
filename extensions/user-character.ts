@@ -11,7 +11,7 @@ import { CORE_MD, SKILL_MD, DATA_DIR, ensureData } from "./paths.mjs";
 const CORE_MARKER = "user-character:core";
 
 export default function userCharacter(pi: ExtensionAPI) {
-  // Kurallar: sistem istemine, her run'da bir kez. Kanca okur, modelin okumasına bırakılmaz.
+  // Rules: in the system prompt, once per run. The hook reads them; reading is not left to the model.
   pi.on("before_agent_start", async (event) => {
     try {
       ensureData();
@@ -30,7 +30,7 @@ export default function userCharacter(pi: ExtensionAPI) {
     }
   });
 
-  // Skor: her istekte küçük not.
+  // Score: a small note on every request.
   pi.on("context", async (event, ctx) => {
     try {
       ensureData();
@@ -65,7 +65,7 @@ export default function userCharacter(pi: ExtensionAPI) {
         ],
       };
     } catch (hata) {
-      console.warn(`user-character-hata: ${hata instanceof Error ? hata.message : String(hata)}`);
+      console.warn(`user-character-error: ${hata instanceof Error ? hata.message : String(hata)}`);
       return;
     }
   });
@@ -78,7 +78,7 @@ function stripBookkeeping(text: string): string {
     .filter((line) => !line.includes(CORE_MARKER))
     .filter((line) => !line.startsWith("> Ek maddeler:"))
     .join("\n")
-    .replace(/^# Kullanıcı karakter kuralları \(çekirdek\)\s*/m, "# Kullanıcı karakter kuralları\n\n")
+    .replace(/^# Kullanıcı karakter kuralları \(çekirdek\)\s*/m, "# User character rules\n\n")
     .trim();
 }
 
@@ -103,7 +103,7 @@ function readSonOlay(): string | undefined {
     if (!son) return undefined;
     const bugun = new Date().toISOString().slice(0, 10);
     if (son.tarih !== bugun) return undefined;
-    return `${son.olay} ${son.rozet} (${son.puan} puan)`;
+    return `${son.olay} ${son.rozet} (${son.puan} points)`;
   } catch {
     return undefined;
   }
@@ -117,13 +117,13 @@ function sonOlayMetni(): string {
 }
 
 function izinEtiketi(izin: { kapsam?: string } | "yok"): string {
-  if (izin === "yok") return "yok";
+  if (izin === "yok") return "none";
   const kapsam = String(izin?.kapsam ?? "");
-  if (kapsam === "tek") return "Bir kez";
-  if (kapsam === "tur") return "Bu tur";
-  if (kapsam === "sure") return "15 dakika";
-  if (kapsam === "oturum+duvar") return "Oturum + duvarlar";
-  return kapsam ? "Oturum" : "yok";
+  if (kapsam === "tek") return "Once";
+  if (kapsam === "tur") return "This turn";
+  if (kapsam === "sure") return "15 minutes";
+  if (kapsam === "oturum+duvar") return "This session + walls";
+  return kapsam ? "This session" : "none";
 }
 
 function containsMarker(message: unknown, marker: string): boolean {

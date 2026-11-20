@@ -1,18 +1,18 @@
 export const POLITIKA = {
   esikler: [0, 5, 15, 30, 50, 75, 105, 140],
   meritEsikleri: [
-    { ad: "Kıvılcım", merit: 10 },
-    { ad: "İz", merit: 25 },
-    { ad: "Pusula", merit: 45 },
-    { ad: "Fener", merit: 70 },
-    { ad: "Bilge", merit: 100 },
+    { ad: "Spark", merit: 10 },
+    { ad: "Trace", merit: 25 },
+    { ad: "Compass", merit: 45 },
+    { ad: "Lantern", merit: 70 },
+    { ad: "Sage", merit: 100 },
   ],
   ceza: { D: 2, E: 3, E5: 5 },
   odul: { ogrenme: 1, kesif: 2, kurtarma: 2, seffaflik: 1 },
   tavan: { yetkiGun: 3, meritGun: 3, istekMerit: 2 },
 };
 
-const RUTBE_ADLARI = ["bronz", "gümüş", "altın", "elmas 1", "elmas 2", "elmas 3", "elmas 4", "elmas 5"];
+const RUTBE_ADLARI = ["bronze", "silver", "gold", "diamond 1", "diamond 2", "diamond 3", "diamond 4", "diamond 5"];
 
 const sayi = (deger) => {
   const n = Number(deger);
@@ -69,22 +69,22 @@ export function notMetni({ yetki = 0, merit = 0, rank, aktif = true, son, izin, 
   const yetkiKalan = sonrakiRutbeVar ? Math.max(0, POLITIKA.esikler[ri + 1] - y) : 0;
 
   const kazanilan = kazanilanRozet(m);
-  const rozet = kazanilan ?? "yok";
+  const rozet = kazanilan ?? "none";
   const rozetEsigi = kazanilan ? POLITIKA.meritEsikleri.find((r) => r.ad === kazanilan).merit : 0;
   const sonraki = sonrakiRozet(m);
   const sonrakiRozetMetni = sonraki ? `${sonraki.ad} (${sonraki.merit})` : "—";
   const meritKalan = sonraki ? Math.max(0, sonraki.merit - m) : 0;
 
   const sonMetin = son === undefined || son === null || son === "" ? "—" : String(son);
-  const duzeltmesiz = /^\+\d/.test(sonMetin.trim()) ? " (düzeltmesiz)" : "";
-  const izinMetin = izin === undefined || izin === null || izin === "" ? "yok" : String(izin);
+  const duzeltmesiz = /^\+\d/.test(sonMetin.trim()) ? " (unremediated)" : "";
+  const izinMetin = izin === undefined || izin === null || izin === "" ? "none" : String(izin);
 
   return [
-    `Yetki ${y} (${rutbeAdi(ri)}) · sıradaki ${sonrakiRutbe}: ${yetkiKalan} · bugün ${isBirimi}/${tavan} iş birimi`,
-    `Merit ${m} · rozet ${rozet} (${rozetEsigi}) · sıradaki ${sonrakiRozetMetni}: ${meritKalan} · tekrar: ${tekrar}`,
-    `Durum: ${aktif ? "aktif" : "pasif"} · son istek: ${sonMetin}${duzeltmesiz}`,
-    `İzin: ${izinMetin}`,
-    "Kaybedersen: kapılar aynı istekte kapanır; 3 temiz istekte geri gelir",
-    "Kazanma: düzeltmesiz istek +1 yetki · öğrenme +1 · keşif +2 · kurtarma +2",
+    `Authority ${y} (${rutbeAdi(ri)}) · next ${sonrakiRutbe}: ${yetkiKalan} · today ${isBirimi}/${tavan} work units`,
+    `Merit ${m} · badge ${rozet} (${rozetEsigi}) · next ${sonrakiRozetMetni}: ${meritKalan} · duplicates: ${tekrar}`,
+    `State: ${aktif ? "active" : "passive"} · last request: ${sonMetin}${duzeltmesiz}`,
+    `Grant: ${izinMetin}`,
+    "If you lose it: gates close in the same request; they reopen after 3 clean requests",
+    "Earning: clean request +1 authority · learning +1 merit · discovery +2 merit · recovery +2 merit",
   ].join("\n");
 }

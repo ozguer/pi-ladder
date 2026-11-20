@@ -1,15 +1,15 @@
-// Rozet/rütbe çekirdek mantığı — saf fonksiyonlar, yan etki yok.
-// Puan defterden gelir (ödül − ceza). Rütbe puanın karşılığıdır; rozet deftere yazılmaz.
+// Badge/rank core logic — pure functions, no side effects.
+// Points come from the ledger (rewards − penalties). Rank is the point equivalent; badges are not written to the ledger.
 
 export const RANKS = [
-  { name: "bronz", puan: 0, tur: 3, kapi: "turda 1 dosya · okuma komutları serbest" },
-  { name: "gümüş", puan: 3, tur: 8, kapi: "turda 2 dosya · proje komutları (python/node/ego-browser) serbest" },
-  { name: "altın", puan: 8, tur: 20, kapi: "turda 3 dosya · duvar dışı her komut serbest" },
-  { name: "elmas 1", puan: 15, tur: 40, kapi: "turda 5 dosya · duvarlar oturumluk açılabilir" },
-  { name: "elmas 2", puan: 22, tur: 60, kapi: "turda 8 dosya · alt ajan onaysız" },
-  { name: "elmas 3", puan: 30, tur: 80, kapi: "turda sınırsız dosya · varsayılan onay: 15 dakika" },
-  { name: "elmas 4", puan: 40, tur: 100, kapi: "yeni skill/eklenti taslağı (kurulum onaylı)" },
-  { name: "elmas 5", puan: 50, tur: 120, kapi: "yıkıcı olmayan her işlem onaysız" },
+  { name: "bronze", puan: 0, tur: 3, kapi: "1 file per turn · read commands allowed" },
+  { name: "silver", puan: 3, tur: 8, kapi: "2 files per turn · project commands (python/node/ego-browser) allowed" },
+  { name: "gold", puan: 8, tur: 20, kapi: "3 files per turn · every command outside walls allowed" },
+  { name: "diamond 1", puan: 15, tur: 40, kapi: "5 files per turn · walls can be opened per session" },
+  { name: "diamond 2", puan: 22, tur: 60, kapi: "8 files per turn · subagents without approval" },
+  { name: "diamond 3", puan: 30, tur: 80, kapi: "unlimited files per turn · default approval: 15 minutes" },
+  { name: "diamond 4", puan: 40, tur: 100, kapi: "new skill/extension draft (install approved)" },
+  { name: "diamond 5", puan: 50, tur: 120, kapi: "every non-destructive operation without approval" },
 ];
 
 const TEHLIKELI = [
@@ -24,13 +24,13 @@ const TEHLIKELI = [
   /(curl|iwr|wget)[^\n]*&&[^\n]*(sh|bash|iex)\b/i,
 ];
 
-// Proje komutları: kod ajanının günlük araçları (gümüşten itibaren serbest).
+// Project commands: the coding agent's daily tools (allowed from silver upward).
 const PROJE_KOMUT = [
   /^\s*(python|python3|py|node|bun|deno|npx|ego-browser)\b/i,
   /^\s*(npm|pnpm|yarn)\s+run\b/i,
 ];
 
-// Yol proje kökünün içinde mi? Sınır duyarlı: C:\proj, C:\proj-evil'i kapsamaz.
+// Is the path inside the project root? Boundary-sensitive: C:\proj does not cover C:\proj-evil.
 export function yolProjeIcinde(cwd, yol) {
   if (!cwd || !yol) return true;
   const normalize = (value) => {
@@ -50,7 +50,7 @@ export function yolProjeIcinde(cwd, yol) {
 
 const YAZMA_HEDEFI = /(?:>>?|\bSet-Content\s+|\bOut-File\s+|\s-o\s+|\s--output\s+)\s*"?([A-Za-z]:[\\/][^"\s]+|\/[^\s"]+)/g;
 
-// Komuttaki her yazma hedefi proje içinde olmalı.
+// Every write target in the command must be inside the project.
 function projeDisiYazma(command, cwd) {
   if (!cwd) return false;
   for (const match of String(command).matchAll(YAZMA_HEDEFI)) {
@@ -70,24 +70,24 @@ const OKUMA = [
 const GIT_YAZMA = /^\s*git\s+(add|commit|switch|checkout\s+-b|branch)\b/i;
 const KURULUM = /^\s*(npm|pnpm|yarn)\s+(i|install|add)\b/i;
 
-// Kapıya hiç takılmayan araçlar: yalnız okuma ve soru. Geri kalan her araç onay ister
-// (tarayıcı, alt ajan, MCP eylemleri dahil), toplu onay kapsamı bunları da serbest bırakır.
+// Tools that never hit the gate: read-only and question tools. Every other tool requires approval
+// (including browser, subagent, and MCP actions); a bulk approval scope also releases them.
 const SERBEST_ARACLAR = new Set(["read", "grep", "glob", "ls", "find", "list", "webfetch", "websearch", "todo", "skill", "question", "ask", "notify"]);
 
 const TURDA_DOSYA = { "-1": 0, 0: 1, 1: 2, 2: 3, 3: 5, 4: 8, 5: 99, 6: 99, 7: 99 };
 
-// Onay kapsamı: tek seferlik, bu tur, 15 dakika, oturum.
+// Approval scope: once, this turn, 15 minutes, session.
 export const KAPSAM = [
-  { id: "tek", ad: "Bir kez" },
-  { id: "tur", ad: "Bu tur" },
-  { id: "sure", ad: "15 dakika" },
-  { id: "oturum", ad: "Bu oturum" },
-  { id: "oturum+duvar", ad: "Bu oturum + duvarlar" },
+  { id: "tek", ad: "Once" },
+  { id: "tur", ad: "This turn" },
+  { id: "sure", ad: "15 minutes" },
+  { id: "oturum", ad: "This session" },
+  { id: "oturum+duvar", ad: "This session + walls" },
 ];
 
 export const SURE_MS = 15 * 60 * 1000;
 
-// Rütbe yükseldikçe varsayılan onay kapsamı genişler: sürtünme erdemle azalır.
+// As rank rises, the default approval scope widens: friction decreases with merit.
 export function varsayilanKapsam(rank) {
   if (rank < 2) return "tek";
   if (rank < 4) return "tur";
@@ -110,30 +110,30 @@ export function kapsamGecerli(grant, { turnId, now = Date.now(), wall = false } 
   return false;
 }
 
-// Menü seçenekleri: duvar onayı için beşinci kapsam yalnız altın ve üstünde.
+// Menu options: the fifth scope for wall approval exists only at gold and above.
 export function kapsamSecenekleri(rank, { wall = false } = {}) {
-  // Pasif (rütbe yok): tek onayla oturum/süre izni verilmez — kapı kapalı kalır.
-  if (Number(rank) < 0) return ["Bir kez"];
+  // Passive (no rank): a single approval cannot grant session/time permission — the gate stays closed.
+  if (Number(rank) < 0) return ["Once"];
   if (!wall) return KAPSAM.filter((k) => k.id !== "oturum+duvar").map((k) => k.ad);
   if (rank >= 2) return KAPSAM.map((k) => k.ad);
-  return ["Bir kez"];
+  return ["Once"];
 }
 
-// Onay günlüğü: tek satır, alanlar | ile.
+// Approval log: one line, fields separated by |.
 export function onaySatiri({ tarih, tool, karar, kapsam }) {
   const zaman = tarih || new Date().toISOString();
-  return [zaman, "kapi", String(tool || "?"), String(karar || "?"), String(kapsam || "-")].join(" | ");
+  return [zaman, "gate", String(tool || "?"), String(karar || "?"), String(kapsam || "-")].join(" | ");
 }
 
-// Defterdeki Puan satırını tek doğru kaynaktan (puan-durum.json) yazar.
+// Writes the Points row in the ledger from the single source of truth (puan-durum.json).
 export function boardPuanSenkron(board, puan) {
-  return String(board || "").replace(/(\| Puan \| )[^|]*(\|)/, `$1${Number(puan) || 0} $2`);
+  return String(board || "").replace(/(\| Points \| )[^|]*(\|)/, `$1${Number(puan) || 0} $2`);
 }
 
 export const TUR_PENCERE = 10;
 export const RISK_CARPAN = 2;
 
-// Puan yalnız katkıdan gelir: ödül satırları. Tur ücreti yok; tur sayısı "kıdem" sayacıdır.
+// Points come only from contribution: reward rows. Turns are free; the turn count is the "seniority" counter.
 export function riskFor(cezaRows) {
   const toplam = (Array.isArray(cezaRows) ? cezaRows : [])
     .filter((row) => /^(D|E)$/i.test(String(row?.grup ?? "").trim()))
@@ -141,7 +141,7 @@ export function riskFor(cezaRows) {
   return Math.min(3, toplam);
 }
 
-// Tampon: puanın rütbe eşiğinin üstünde ne kadar olduğu.
+// Buffer: how far points sit above the rank threshold.
 export function tamponFor(puan, rank) {
   if (rank < 0) return null;
   return Number(puan) - RANKS[rank].puan;
@@ -154,7 +154,7 @@ export function bolgeFor(tampon) {
   return "kirmizi";
 }
 
-// Rütbe aktif mi: puan eşiği geçmiş ve son 3 turda risk yok.
+// Is the rank active: point threshold passed and no risk in the last 3 turns.
 export function rutbeAktif(puan, turlar, rank = rankIndex(puan)) {
   if (rank < 0) return false;
   return sonTurlarTemiz(turlar, 3);
@@ -166,7 +166,7 @@ export function sonTurlarTemiz(turlar, adet = 3) {
   return son.every((tur) => (Number(tur?.risk) || 0) === 0);
 }
 
-// Puan = max(0, birikim − 2 × son 10 turun riski). Birikim azalmaz; risk eskiyince düşer.
+// Points = max(0, accumulated − 2 × risk of the last 10 turns). Accumulated never drops; the score recovers as risk ages out.
 export function puanDurum({ birikim, turlar }) {
   const risk = (Array.isArray(turlar) ? turlar : []).reduce((sum, tur) => sum + (Number(tur?.risk) || 0), 0);
   return Math.max(0, (Number(birikim) || 0) - RISK_CARPAN * risk);
@@ -183,7 +183,7 @@ export function yeniTur(state, { risk = 0, odul = 0, work = false } = {}) {
   return { birikim, turlar, temizTur };
 }
 
-// Risk penceresi: toplam risk, en son riskli turun pencereden çıkmasına kaç tur kaldığı ve o turun geri getireceği puan.
+// Risk window: total risk, how many turns until the latest risky turn leaves the window, and the points that turn will restore.
 export function erimeBilgisi(turlar) {
   const pencere = Array.isArray(turlar) ? turlar : [];
   const toplam = pencere.reduce((sum, tur) => sum + (Number(tur?.risk) || 0), 0);
@@ -201,7 +201,7 @@ export function erimeBilgisi(turlar) {
   return { risk: toplam, kalanTur: Math.max(0, TUR_PENCERE - gecen), geri: RISK_CARPAN * sonRisk };
 }
 
-// Skorcuya giden tur metni: gürültüyü kırpar, tekrarları toplar, toplam boyutu sınırlar.
+// Transcript text sent to the scorer: trims noise, collapses repeats, limits total size.
 export function compactTranscript(items, options = {}) {
   const maxChars = Number(options.maxChars) || 6000;
   const lines = [];
@@ -234,7 +234,7 @@ export function compactTranscript(items, options = {}) {
       }
     } else if (item.role === "toolResult") {
       const body = clipText(item.text, 160);
-      ekle(`← ${item.isError ? "HATA" : "ok"}: ${body}`);
+      ekle(`← ${item.isError ? "ERROR" : "ok"}: ${body}`);
     }
   }
 
@@ -247,8 +247,8 @@ function clipText(value, limit) {
   return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
 
-export function parseScore(board) {  const ceza = sectionSum(board, "## Ceza", "## Ödül");
-  const odul = sectionSum(board, "## Ödül", null);
+export function parseScore(board) {  const ceza = sectionSum(board, "## Penalties", "## Rewards");
+  const odul = sectionSum(board, "## Rewards", null);
   return { ceza, odul, puan: odul - ceza };
 }
 
@@ -275,8 +275,8 @@ function firstHeaderAfter(rest) {
 }
 
 export function rankIndex(puan) {
-  // Fail-open yok: puan okunamıyorsa rütbe yok (-1), bronz'a düşmez.
-  // Number(null) === 0 tuzağı: null/undefined/boş metin açıkça elenir.
+  // No fail-open: if points cannot be read there is no rank (-1); it does not fall back to bronze.
+  // Number(null) === 0 trap: null/undefined/empty text are explicitly rejected.
   if (puan === null || puan === undefined || puan === "" || typeof puan === "boolean") return -1;
   const sayi = Number(puan);
   if (!Number.isFinite(sayi)) return -1;
@@ -292,7 +292,7 @@ function turIndex(temizTur) {
   return index;
 }
 
-// Rütbe iki şart ister: puan eşiği ve kıdem (temiz tur). İkisinin küçüğü geçerlidir.
+// Rank requires two conditions: the point threshold and seniority (clean turns). The lower of the two wins.
 export function rutbeIndex(puan, temizTur = 0) {
   return Math.min(rankIndex(puan), turIndex(temizTur));
 }
@@ -310,12 +310,12 @@ export function nextRank(puan, temizTur = 0) {
 }
 
 export function doorsText(index) {
-  if (index < 0) return ["(kapı yok — önce bronz)"];
+  if (index < 0) return ["(no gates — bronze first)"];
   return [RANKS[index].kapi];
 }
 
 export function sonrakiKapilar(index, adet = 2) {
-  return RANKS.slice(index + 1, index + 1 + adet).map((rank) => `${rank.name} (${rank.puan} puan · ${rank.tur} tur): ${rank.kapi}`);
+  return RANKS.slice(index + 1, index + 1 + adet).map((rank) => `${rank.name} (${rank.puan} points · ${rank.tur} turns): ${rank.kapi}`);
 }
 
 export function decideGate({ toolName, input, rank, editsThisTurn, grant, turnId, now, cwd }) {
@@ -333,11 +333,11 @@ function temelKarar({ toolName, input, rank, editsThisTurn, cwd }) {
     const limit = TURDA_DOSYA[String(Math.max(rank, -1))] ?? 99;
     const yol = typeof args.path === "string" ? args.path.trim() : "";
     if (yol && !yolProjeIcinde(cwd, yol)) {
-      return { action: "confirm", wall: true, reason: "proje dışına yazma: her rütbede onay" };
+      return { action: "confirm", wall: true, reason: "write outside project: approval at every rank" };
     }
-    if (rank < 0) return { action: "confirm", reason: "rütbe yok: dosya değişikliği onay ister" };
+    if (rank < 0) return { action: "confirm", reason: "no rank: file change requires approval" };
     if (limit !== 99 && editsThisTurn >= limit) {
-      return { action: "confirm", reason: `turda dosya sınırı (${limit}) aşıldı` };
+      return { action: "confirm", reason: `per-turn file limit (${limit}) exceeded` };
     }
     return { action: "allow" };
   }
@@ -345,26 +345,26 @@ function temelKarar({ toolName, input, rank, editsThisTurn, cwd }) {
   if (toolName !== "bash") {
     const metin = typeof args.command === "string" ? args.command : typeof args.script === "string" ? args.script : "";
     if (metin && TEHLIKELI.some((pattern) => pattern.test(metin))) {
-      return { action: "confirm", wall: true, reason: "yıkıcı veya global işlem: her rütbede onay" };
+      return { action: "confirm", wall: true, reason: "destructive or global operation: approval at every rank" };
     }
     if (SERBEST_ARACLAR.has(toolName)) return { action: "allow" };
-    return { action: "confirm", reason: `${toolName} aracı bu rütbede onay ister` };
+    return { action: "confirm", reason: `${toolName} tool requires approval at this rank` };
   }
 
   const command = typeof args.command === "string" ? args.command : "";
-  if (!command.trim()) return { action: "confirm", reason: "boş/okunamayan komut" };
+  if (!command.trim()) return { action: "confirm", reason: "empty/unreadable command" };
 
   if (TEHLIKELI.some((pattern) => pattern.test(command)) || projeDisiYazma(command, cwd)) {
-    return { action: "confirm", wall: true, reason: "yıkıcı veya global işlem: her rütbede onay" };
+    return { action: "confirm", wall: true, reason: "destructive or global operation: approval at every rank" };
   }
 
-  if (rank < 0) return { action: "confirm", reason: "rütbe yok: komut onay ister" };
+  if (rank < 0) return { action: "confirm", reason: "no rank: command requires approval" };
   if (rank >= 2) return { action: "allow" };
   if (rank >= 0 && OKUMA.some((pattern) => pattern.test(command))) return { action: "allow" };
   if (rank >= 1 && PROJE_KOMUT.some((pattern) => pattern.test(command))) return { action: "allow" };
   if (rank >= 1 && GIT_YAZMA.test(command)) return { action: "allow" };
 
-  return { action: "confirm", reason: "komut bu rütbede serbest değil" };
+  return { action: "confirm", reason: "command not allowed at this rank" };
 }
 
 export function historyDelta({ oncekiRank, rank, puan, tarih, gecmis }) {
@@ -372,11 +372,11 @@ export function historyDelta({ oncekiRank, rank, puan, tarih, gecmis }) {
   if (oncekiRank === null || oncekiRank === undefined) return rows;
   if (rank > oncekiRank) {
     for (let i = oncekiRank + 1; i <= rank; i += 1) {
-      rows.push({ tarih, olay: "kazandı", rozet: RANKS[i].name, puan, sebep: "eşik geçildi" });
+      rows.push({ tarih, olay: "won", rozet: RANKS[i].name, puan, sebep: "threshold crossed" });
     }
   } else if (rank < oncekiRank) {
     for (let i = oncekiRank; i > rank; i -= 1) {
-      rows.push({ tarih, olay: "kaybetti", rozet: RANKS[i].name, puan, sebep: "puan eşiğin altına düştü" });
+      rows.push({ tarih, olay: "lost", rozet: RANKS[i].name, puan, sebep: "score dropped below threshold" });
     }
   }
   return rows;
@@ -386,38 +386,38 @@ export function renderRozet({ puan, rank, gecmis, tarih, tampon, bolge, aktif, t
   const current = rank >= 0 ? RANKS[rank] : null;
   const next = nextRank(puan, temizTur);
   const tamponDeger = tampon === undefined ? null : tampon;
-  const durum = current ? (aktif === false ? "askıda (3 temiz tur gerek)" : "aktif") : "—";
-  const bolgeAdi = bolge === "guvenli" ? "güvenli" : bolge === "sari" ? "sarı" : bolge === "kirmizi" ? "kırmızı" : "—";
+  const durum = current ? (aktif === false ? "suspended (needs 3 clean turns)" : "active") : "—";
+  const bolgeAdi = bolge === "guvenli" ? "safe" : bolge === "sari" ? "yellow" : bolge === "kirmizi" ? "red" : "—";
   const lines = [
-    "# Rozetler",
+    "# Badges",
     "",
-    "Rozet skor tablosuna yazılmaz. Puanla kazanılır, puan düşünce kaybedilir; kayıt silinmez.",
+    "Badges are not written to the scoreboard. They are earned with points and lost when points drop; records are never deleted.",
     "",
-    "## Rütbe",
+    "## Rank",
     "",
-    "| Alan | Değer |",
+    "| Field | Value |",
     "|---|---|",
-    `| Puan | ${puan} |`,
-    `| Kıdem | ${temizTur} temiz tur |`,
-    `| Rütbe | ${current ? current.name : "—"} |`,
-    `| Durum | ${durum} |`,
-    `| Tampon | ${tamponDeger === null ? "—" : `${tamponDeger} (${bolgeAdi})`} |`,
-    `| Sıradaki | ${next ? `${next.name} (${[
-      next.kalan > 0 ? `${next.kalan} puan` : "",
-      next.kalanTur > 0 ? `${next.kalanTur} tur` : "",
-    ].filter(Boolean).join(" + ")} kaldı)` : "en üst"} |`,
-    `| Varsayılan onay | ${kapsamAdi(varsayilanKapsam(rank))} |`,
+    `| Points | ${puan} |`,
+    `| Seniority | ${temizTur} clean turns |`,
+    `| Rank | ${current ? current.name : "—"} |`,
+    `| Status | ${durum} |`,
+    `| Buffer | ${tamponDeger === null ? "—" : `${tamponDeger} (${bolgeAdi})`} |`,
+    `| Next | ${next ? `${next.name} (${[
+      next.kalan > 0 ? `${next.kalan} points` : "",
+      next.kalanTur > 0 ? `${next.kalanTur} turns` : "",
+    ].filter(Boolean).join(" + ")} remaining)` : "top"} |`,
+    `| Default approval | ${kapsamAdi(varsayilanKapsam(rank))} |`,
     "",
-    "## Açık kapılar",
+    "## Open gates",
     "",
     ...doorsText(rank).map((kapi) => `- ${kapi}`),
     "",
-    ...(sonrakiKapilar(rank).length ? ["## Sıradaki kapılar", "", ...sonrakiKapilar(rank).map((kapi) => `- ${kapi}`), ""] : []),
-    "Kapılar puanla açılır, puan düşünce aynı turda kapanır. Duvarlar (SKILL.md, global kurulum, silme, ödeme, dış yazma) varsayılan olarak tek tek sorulur; kullanıcı altın ve üstünde 'Bu oturum + duvarlar' derse oturum boyunca açılır.",
+    ...(sonrakiKapilar(rank).length ? ["## Next gates", "", ...sonrakiKapilar(rank).map((kapi) => `- ${kapi}`), ""] : []),
+    "Gates open with points and close in the same turn when points drop. Walls (SKILL.md, global install, deletion, payment, external writes) are asked one by one by default; if the user says 'This session + walls' at gold and above, they open for the session.",
     "",
-    "## Geçmiş",
+    "## History",
     "",
-    "| Tarih | Olay | Rozet | Puan | Sebep |",
+    "| Date | Event | Badge | Points | Reason |",
     "|---|---|---|---|---|",
     ...(gecmis || []).map(
       (row) =>
@@ -436,9 +436,9 @@ export function kapsamAdi(scope) {
   return (KAPSAM.find((k) => k.id === scope) || KAPSAM[0]).ad;
 }
 
-// Kapı başlığı: tek satır, kısa. Menü seçenekleri ayrı argümandır; başlığa asla liste karışmaz.
+// Gate title: one short line. Menu options are a separate argument; a list never leaks into the title.
 export function kapiBasligi({ rutbeAdi, puan, reason }) {
   const temiz = String(reason ?? "").replace(/\s+/g, " ").trim();
-  const metin = `Rütbe kapısı: ${String(rutbeAdi ?? "yok")} (puan ${Number(puan) || 0}) · ${temiz}`;
+  const metin = `Rank gate: ${String(rutbeAdi ?? "none")} (score ${Number(puan) || 0}) · ${temiz}`;
   return metin.length > 110 ? `${metin.slice(0, 110)}…` : metin;
 }

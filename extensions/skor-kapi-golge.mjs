@@ -1,6 +1,6 @@
-// Gölge kapı çekirdeği.
-// Görünen kapı kararını değiştirmeden yeni kararı yan yana üretir ve isteğe bağlı loglar.
-// Hiçbir koşulda throw etmez; kanca akışını durdurmaz.
+// Shadow gate core.
+// Produces the new decision side by side with the visible gate decision and logs optionally.
+// Never throws; it does not stop the hook flow.
 
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -38,7 +38,7 @@ export function kapiGolge({ ctx, toolName, input, rank, cwd, eskiKarar, grant, n
         mkdirSync(dirname(logYolu), { recursive: true });
         appendFileSync(
           logYolu,
-          `${iso} | kapi | ${metin(toolName)} eski=${metin(eskiEylem)} → yeni=${metin(eylem(yeni))} via=${metin(yeni?.via)} uyumlu=${uyumlu} duvar=${metin(yeni?.wall)}\n`,
+          `${iso} | gate | ${metin(toolName)} old=${metin(eskiEylem)} → new=${metin(eylem(yeni))} via=${metin(yeni?.via)} match=${uyumlu} wall=${metin(yeni?.wall)}\n`,
           "utf8",
         );
         loglandi = true;

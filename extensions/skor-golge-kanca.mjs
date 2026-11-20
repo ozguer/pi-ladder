@@ -1,5 +1,5 @@
-// Gölge skor köprüsü: skorcu kancasından gelen tur verisini gölge hattına aktarır.
-// Görünen skoru değiştirmez; yalnız skor-olaylar.jsonl ve skor-golge.log dosyalarına yazar.
+// Shadow score bridge: forwards turn data from the scorer hook to the shadow pipeline.
+// Does not change the visible score; writes only to skor-olaylar.jsonl and skor-golge.log.
 
 import { createHash } from "node:crypto";
 import { appendFileSync, mkdirSync } from "node:fs";
@@ -49,10 +49,10 @@ const dosyalariCikar = (ctx) => {
 const meritKaynagi = (ne) => {
   const metin = String(ne ?? "").toLocaleLowerCase("tr-TR").trim();
   if (!metin) return null;
-  if (metin.includes("keşif") || metin.includes("kesif")) return "kesif";
-  if (metin.includes("öğrenme") || metin.includes("ogrenme")) return "ogrenme";
+  if (metin.includes("ke\u015fif") || metin.includes("kesif")) return "kesif";
+  if (metin.includes("\u00f6\u011frenme") || metin.includes("ogrenme")) return "ogrenme";
   if (metin.includes("kurtarma")) return "kurtarma";
-  if (metin.includes("şeffaflık") || metin.includes("seffaflik")) return "seffaflik";
+  if (metin.includes("\u015feffafl\u0131k") || metin.includes("seffaflik")) return "seffaflik";
   return null;
 };
 
@@ -65,7 +65,7 @@ const bosYargi = () => ({
   work: false,
   dE: [],
   odul: [],
-  gerekce: "kanıt yok",
+  gerekce: "no evidence",
 });
 
 const guvenliYargi = (deger) => ({
@@ -73,7 +73,7 @@ const guvenliYargi = (deger) => ({
   work: deger?.work === true,
   dE: Array.isArray(deger?.dE) ? deger.dE : [],
   odul: Array.isArray(deger?.odul) ? deger.odul : [],
-  gerekce: typeof deger?.gerekce === "string" ? deger.gerekce : "kanıt yok",
+  gerekce: typeof deger?.gerekce === "string" ? deger.gerekce : "no evidence",
 });
 
 export function yargicKarsilastir({ mesajlar, eskiRisk, eskiWork, testGecti } = {}) {
@@ -125,7 +125,7 @@ const mesajlariAl = (kaynak, ctx) => {
 };
 
 const dEMetni = (dE) => {
-  if (!Array.isArray(dE) || dE.length === 0) return "yok";
+  if (!Array.isArray(dE) || dE.length === 0) return "none";
   return dE.map((kayit) => `${kayit?.grup ?? "?"}${kayit?.derece ?? "?"}`).join(",");
 };
 
@@ -133,13 +133,13 @@ const yargicLogla = ({ eskiRisk, eskiWork, yargic }) => {
   const iso = new Date().toISOString();
   const yeni = yargic?.yeni ?? bosYargi();
   const satir =
-    `${iso} | yargic | eski(D${eskiRisk}/${eskiWork}) → yeni(D${yeni.risk}/${yeni.work})` +
-    ` | dE:${dEMetni(yeni.dE)} uyumlu=${yargic?.uyumlu === true}`;
+    `${iso} | judge | old(D${eskiRisk}/${eskiWork}) → new(D${yeni.risk}/${yeni.work})` +
+    ` | dE:${dEMetni(yeni.dE)} match=${yargic?.uyumlu === true}`;
   try {
     mkdirSync(dirname(GUNLUK_LOG_YOL), { recursive: true });
     appendFileSync(GUNLUK_LOG_YOL, `${satir}\n`, "utf8");
   } catch {
-    // Gölge hattı görünen akışı durdurmaz; log yazma hatası yutulur.
+    // The shadow pipeline does not stop the visible flow; log write errors are swallowed.
   }
   return satir;
 };
@@ -149,7 +149,7 @@ export function golgeIsle(girdi = {}) {
   let tekrar = 0;
   let karsilastirma = null;
   let yargic = null;
-  let sonAnahtar = "golge";
+  let sonAnahtar = "shadow";
 
   try {
     const kaynak = girdi && typeof girdi === "object" ? girdi : {};
@@ -171,7 +171,7 @@ export function golgeIsle(girdi = {}) {
     if (etkinWork === true && etkinRisk === 0) {
       const istekMetni = sonIstekMetni(text);
       const dosyalar = dosyalariCikar(ctx);
-      // Gerçek diff değil; gölge karşılaştırması için iş parmak izi proxy'si.
+      // Not a real diff; a work fingerprint proxy for shadow comparison.
       const diffHash = sha256(dosyalar.join("|"));
       const key = isBirimiAnahtari({ istekMetni, dosyalar, diffHash });
       sonAnahtar = key;
@@ -187,7 +187,7 @@ export function golgeIsle(girdi = {}) {
       if (sonuc.yazildi) yazilan += 1;
       else if (sonuc.tekrar) tekrar += 1;
     } else {
-      // Cezalar bu turda gölge hattına taşınmıyor; yalnız iş ve merit olayları yazılır.
+      // Penalties are not forwarded to the shadow pipeline this turn; only work and merit events are written.
     }
 
     const oduller = Array.isArray(verdict?.odul) ? verdict.odul : [];
@@ -213,7 +213,7 @@ export function golgeIsle(girdi = {}) {
     karsilastirma = golgeKarsilastir({ eskiPuan: oncekiPuan, durum });
     golgeLogla({
       logYolu: GUNLUK_LOG_YOL,
-      kayit: { tip: "golge", key: sonAnahtar, ...karsilastirma },
+      kayit: { tip: "shadow", key: sonAnahtar, ...karsilastirma },
     });
     if (mesajlarVar) yargicLogla({ eskiRisk: risk, eskiWork: work, yargic });
 

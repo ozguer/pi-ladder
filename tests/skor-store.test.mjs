@@ -37,7 +37,7 @@ const geciciDizin = (t) => {
 
 const satir = (olay) => `${JSON.stringify(olay)}\n`;
 
-test("olaylariOku: 500 tam satır + yarım son satır → 500 olay, 0 bozuk", (t) => {
+test("olaylariOku: 500 complete lines + a half last line -> 500 events, 0 corrupt", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "olaylar.jsonl");
   const tam = Array.from({ length: 500 }, (_, i) =>
@@ -49,7 +49,7 @@ test("olaylariOku: 500 tam satır + yarım son satır → 500 olay, 0 bozuk", (t
   assert.equal(bozuk, 0);
 });
 
-test("olaylariOku: ortadaki bozuk satır bozuk sayılır ve atlanır", (t) => {
+test("olaylariOku: a corrupt middle line is counted as corrupt and skipped", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "olaylar.jsonl");
   writeFileSync(
@@ -63,7 +63,7 @@ test("olaylariOku: ortadaki bozuk satır bozuk sayılır ve atlanır", (t) => {
   assert.equal(bozuk, 1);
 });
 
-test("kilitAl: aynı kilit bayat devralmadan önce ikinci kez alınamaz", (t) => {
+test("kilitAl: the same lock cannot be taken twice before stale takeover", (t) => {
   const dizin = geciciDizin(t);
   const kilit = join(dizin, "depo.kilit");
   const birak = kilitAl(kilit, { staleMs: 60_000, deneme: 0, aralikMs: 1 });
@@ -75,7 +75,7 @@ test("kilitAl: aynı kilit bayat devralmadan önce ikinci kez alınamaz", (t) =>
   tekrar();
 });
 
-test("kilitAl: mtime'ı eski bayat kilit devralınır", (t) => {
+test("kilitAl: a stale lock with an old mtime is taken over", (t) => {
   const dizin = geciciDizin(t);
   const kilit = join(dizin, "depo.kilit");
   mkdirSync(kilit);
@@ -87,7 +87,7 @@ test("kilitAl: mtime'ı eski bayat kilit devralınır", (t) => {
   assert.equal(existsSync(kilit), false);
 });
 
-test("olayYaz: aynı anahtar pencere içinde ikinci kez yazılmaz", (t) => {
+test("olayYaz: the same key is not written twice within the window", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "olaylar.jsonl");
   const t0 = 1_000_000;
@@ -102,7 +102,7 @@ test("olayYaz: aynı anahtar pencere içinde ikinci kez yazılmaz", (t) => {
   assert.equal(olaylariOku(yol).olaylar.length, 1);
 });
 
-test("olayYaz: pencere dışındaki aynı anahtar yeni olay olarak yazılır", (t) => {
+test("olayYaz: the same key outside the window is written as a new event", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "olaylar.jsonl");
   const t0 = 1_000_000;
@@ -116,7 +116,7 @@ test("olayYaz: pencere dışındaki aynı anahtar yeni olay olarak yazılır", (
   assert.equal(olaylariOku(yol).olaylar.length, 2);
 });
 
-test("olayYaz: pencereMs verilmezse tekilleştirme yapılmaz (K48)", (t) => {
+test("olayYaz: no deduplication when pencereMs is omitted (K48)", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "olaylar.jsonl");
   const t0 = 1_000_000;
@@ -131,7 +131,7 @@ test("olayYaz: pencereMs verilmezse tekilleştirme yapılmaz (K48)", (t) => {
   assert.equal(olaylariOku(yol).olaylar.length, 2);
 });
 
-test("olayYaz: pencereMs=0 iken aynı anahtar yine yazılır (K48)", (t) => {
+test("olayYaz: the same key is written again when pencereMs=0 (K48)", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "olaylar.jsonl");
   const t0 = 1_000_000;
@@ -141,7 +141,7 @@ test("olayYaz: pencereMs=0 iken aynı anahtar yine yazılır (K48)", (t) => {
   assert.equal(olaylariOku(yol).olaylar.length, 2);
 });
 
-test("4 paralel süreç × 25 olay → 100 satır, kayıp yok", async (t) => {
+test("4 parallel processes × 25 events -> 100 lines, no loss", async (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "olaylar.jsonl");
   const calistir = () =>
@@ -156,7 +156,7 @@ test("4 paralel süreç × 25 olay → 100 satır, kayıp yok", async (t) => {
       cocuk.on("error", reject);
       cocuk.on("exit", (kod) => {
         if (kod === 0) resolve();
-        else reject(new Error(`worker çıkış ${kod}: ${hata}`));
+        else reject(new Error(`worker exit ${kod}: ${hata}`));
       });
     });
   await Promise.all(Array.from({ length: 4 }, calistir));
@@ -165,7 +165,7 @@ test("4 paralel süreç × 25 olay → 100 satır, kayıp yok", async (t) => {
   assert.equal(bozuk, 0);
 });
 
-test("onbellekYaz/onbellekOku aynı veriyi döner", (t) => {
+test("onbellekYaz/onbellekOku return the same data", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "durum.json");
   const veri = { yetki: 7, merit: 3, gunluk: { isBirimi: 2, tekrar: 1 }, liste: [1, 2, 3] };
@@ -173,7 +173,7 @@ test("onbellekYaz/onbellekOku aynı veriyi döner", (t) => {
   assert.deepEqual(onbellekOku(yol), veri);
 });
 
-test("bozuk önbellek null döner ve onbellekOnar günlükten düzeltir", (t) => {
+test("corrupt cache returns null and onbellekOnar repairs it from the log", (t) => {
   const dizin = geciciDizin(t);
   const onbellek = join(dizin, "durum.json");
   const olayYolu = join(dizin, "olaylar.jsonl");
@@ -192,7 +192,7 @@ test("bozuk önbellek null döner ve onbellekOnar günlükten düzeltir", (t) =>
   assert.deepEqual(onbellekOku(onbellek), durum);
 });
 
-test("gorunumYaz atomik yazar ve .tmp bırakmaz", (t) => {
+test("gorunumYaz writes atomically and leaves no .tmp", (t) => {
   const dizin = geciciDizin(t);
   const yol = join(dizin, "GORUNUM.md");
   const satirlar = ["# Başlık", "", "- bir", "- iki"];

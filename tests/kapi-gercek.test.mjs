@@ -104,7 +104,7 @@ test("duvar: korumalı hedefe cp engellenir ve reason duvar adını taşır", as
   );
 
   assert.equal(sonuc?.block, true);
-  assert.match(sonuc.reason, /korumali-yazma/);
+  assert.match(sonuc.reason, /protected-write/);
   assert.equal(ctx.sorulanlar.length, 0, "duvar onayla açılmaz");
 });
 
@@ -116,7 +116,7 @@ test("find . -delete rank 5: engellenir", async () => {
   const sonuc = await handler({ toolName: "bash", input: { command: "find . -delete" } }, ctx);
 
   assert.equal(sonuc?.block, true);
-  assert.match(sonuc.reason, /find-yikici/);
+  assert.match(sonuc.reason, /find-destructive/);
 });
 
 test("tur sınırı: rank 1 turda 2 dosya akar, üçüncüsü onaya takılır", async () => {
@@ -135,7 +135,7 @@ test("tur sınırı: rank 1 turda 2 dosya akar, üçüncüsü onaya takılır", 
 
   const ucuncu = await handler({ toolName: "edit", input: { path: join(ev, "c.js") } }, ctx);
   assert.equal(ctx.sorulanlar.length, 1);
-  assert.match(ctx.sorulanlar[0].mesaj, /tur başına dosya sınırı/);
+  assert.match(ctx.sorulanlar[0].mesaj, /per-turn file limit/);
 });
 
 test("aktif değil (son olayda ceza): rank -1 gibi davranır, bash onay ister", async () => {
@@ -161,7 +161,7 @@ test("UI reddi: onay yoksa engellenir", async () => {
   const sonuc = await handler({ toolName: "edit", input: { path: join(ev, "a.js") } }, ctx);
 
   assert.equal(sonuc?.block, true);
-  assert.match(sonuc.reason, /Kullanıcı onayı yok/);
+  assert.match(sonuc.reason, /No user approval/);
 });
 
 test("serbest iş: handler undefined döner ve event.messages değişmez", async () => {

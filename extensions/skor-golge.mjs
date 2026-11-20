@@ -1,6 +1,6 @@
-// Gölge skor çekirdeği.
-// Görünen skoru değiştirmeden yeni skor hattını yan yana çalıştırır.
-// Kancalara bağlanmak bu modülün sorumluluğunda değildir.
+// Shadow score core.
+// Runs the new score pipeline side by side without changing the visible score.
+// Wiring it to hooks is not this module's responsibility.
 
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -72,7 +72,7 @@ export function golgeLogla({ logYolu, kayit } = {}) {
     mkdirSync(dirname(logYolu), { recursive: true });
     appendFileSync(logYolu, `${satir}\n`, "utf8");
   } catch {
-    // Gölge hattı görünen akışı durdurmaz; yazma hatası yutulur.
+    // The shadow pipeline does not stop the visible flow; write errors are swallowed.
   }
 
   return satir;

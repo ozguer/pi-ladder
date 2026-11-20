@@ -1,6 +1,6 @@
 // @ts-nocheck
-// Yalnız karakter skill dosyası (SKILL.md) için ek onay kapısı.
-// Pi'nin diğer araçlarına, dosyalarına ve akışına dokunmaz.
+// Extra approval gate only for the character skill file (SKILL.md).
+// It does not touch other Pi tools, files, or flow.
 
 import { resolve } from "node:path";
 import { writeFileSync } from "node:fs";
@@ -19,13 +19,13 @@ export default function userCharacterSkillGuard(pi) {
     if (!samePath(target, SKILL_MD)) return;
 
     let approved = false;
-    // Başsız oturumda (alt ajan / UI yok) onay sorulamaz: yazma engellenir, kanca çökmez.
+    // In a headless session (subagent / no UI) approval cannot be requested: the write is blocked and the hook does not crash.
     const uiVar = Boolean(ctx?.hasUI) && typeof ctx?.ui?.confirm === "function";
     try {
       if (uiVar) {
         approved = await ctx.ui.confirm(
-          "Karakter skill dosyası",
-          `Pi "${SKILL_MD}" dosyasını değiştirmek istiyor. Onaylıyor musun?`,
+          "Character skill file",
+          `Pi wants to change "${SKILL_MD}". Approve?`,
         );
       }
     } catch {
@@ -37,23 +37,23 @@ export default function userCharacterSkillGuard(pi) {
       try {
         writeFileSync(BLOCKED_MARKER, JSON.stringify({ at: Date.now(), path: SKILL_MD }), "utf8");
       } catch {
-        // işaret yazılamazsa yalnız engelle
+        // if the marker cannot be written, just block
       }
       try {
         pi.events.emit("user-character:skill-write-blocked", { at: Date.now(), path: SKILL_MD });
       } catch {
-        // olay yolu yoksa ceza yine skorcu tarafından yazılır
+        // if there is no event path, the penalty is still written by the scorer
       }
       return {
         block: true,
-        reason: "Kullanıcı onayı yok: karakter skill dosyası değiştirilemez.",
+        reason: "No user approval: the character skill file cannot be changed.",
       };
     }
 
     try {
       pi.events.emit("user-character:skill-write-approved", { path: SKILL_MD, at: Date.now() });
     } catch {
-      // bildirim başarısız olsa da yazma onaylı
+      // even if the notification fails, the write is approved
     }
   });
 }

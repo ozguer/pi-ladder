@@ -17,35 +17,35 @@ const durum = (ek = {}) => ({
 test("skorbordMetni: durum satirlari Yetki 15, Merit 0, Rutbe altin, Bugun 0/3", () => {
   const metin = skorbordMetni({ durum: durum(), satirlar: {}, tarih: TARIH });
 
-  assert.match(metin, /Yetki 15/);
+  assert.match(metin, /Authority 15/);
   assert.match(metin, /Merit 0/);
-  assert.match(metin, /Rütbe altın/);
-  assert.match(metin, /Bugün 0\/3 iş birimi/);
-  assert.match(metin, /## Durum/);
+  assert.match(metin, /Rank gold/);
+  assert.match(metin, /Today 0\/3 work units/);
+  assert.match(metin, /## State/);
 });
 
 test("skorbordMetni: satirlar bos olsa da tablo basliklari var, throw yok", () => {
   for (const satirlar of [undefined, null, {}, [], { ceza: [], odul: [] }]) {
     assert.doesNotThrow(() => skorbordMetni({ durum: durum(), satirlar, tarih: TARIH }));
     const metin = skorbordMetni({ durum: durum(), satirlar, tarih: TARIH });
-    assert.match(metin, /\| # \| Tarih \| Grup \| Derece \| Kural \| İhlal \| Kanıt \| Düzeltme \| Puan \|/);
-    assert.match(metin, /\| # \| Tarih \| Ne işe yaradı \| Kanıt \| Puan \|/);
+    assert.match(metin, /\| # \| Date \| Group \| Degree \| Rule \| Violation \| Evidence \| Correction \| Points \|/);
+    assert.match(metin, /\| # \| Date \| What it was for \| Evidence \| Points \|/);
   }
 });
 
 test("skorbordMetni: defter gorunumu oldugunu ve kaynagin olay gunlugu oldugunu soyler", () => {
   const metin = skorbordMetni({ durum: durum(), satirlar: {}, tarih: TARIH });
 
-  assert.match(metin, /görünümüdür; kaynak olay günlüğüdür/);
-  assert.equal(metin.trimEnd().endsWith("Bu defter görünümüdür; kaynak olay günlüğüdür."), true);
+  assert.match(metin, /This is a view; the source is the event log\./);
+  assert.equal(metin.trimEnd().endsWith("This is a view; the source is the event log."), true);
 });
 
 test("rozetMetni: merit 0 -> rozet yok, siradaki Kivilcim (10), kalan 10", () => {
   const metin = rozetMetni({ durum: durum({ merit: 0 }), gecmis: [], tarih: TARIH });
 
-  assert.match(metin, /rozet yok/);
-  assert.match(metin, /Kıvılcım \(10\)/);
-  assert.match(metin, /kalan 10/);
+  assert.match(metin, /badge none/);
+  assert.match(metin, /Spark \(10\)/);
+  assert.match(metin, /remaining 10/);
 });
 
 test("rozetMetni: merit 25 -> Iz, siradaki Pusula; gecmis en fazla 20 satir", () => {
@@ -57,13 +57,13 @@ test("rozetMetni: merit 25 -> Iz, siradaki Pusula; gecmis en fazla 20 satir", ()
   }));
   const metin = rozetMetni({ durum: durum({ merit: 25 }), gecmis, tarih: TARIH });
 
-  assert.match(metin, /rozet İz/);
-  assert.match(metin, /sıradaki Pusula \(45\)/);
+  assert.match(metin, /badge Trace/);
+  assert.match(metin, /next Compass \(45\)/);
   assert.match(metin, /olay-25/);
   assert.match(metin, /olay-6/);
   assert.equal(metin.includes("olay-5"), false);
 
-  const satirlar = metin.split("\n").filter((satir) => satir.startsWith("| ") && !satir.startsWith("| Tarih") && !satir.includes("---"));
+  const satirlar = metin.split("\n").filter((satir) => satir.startsWith("| ") && !satir.startsWith("| Date") && !satir.includes("---"));
   assert.equal(satirlar.length, 20);
 });
 
@@ -157,8 +157,8 @@ test("skorbordMetni/rozetMetni: durum eksik -> — ile gosterilir, throw yok", (
   const b = skorbordMetni({ durum: null, satirlar: null, tarih: null });
   const r = rozetMetni({ durum: null, gecmis: "bozuk", tarih: null });
 
-  assert.match(b, /Yetki —/);
-  assert.match(b, /Rütbe —/);
-  assert.match(r, /rozet —/);
-  assert.match(r, /sıradaki —/);
+  assert.match(b, /Authority —/);
+  assert.match(b, /Rank —/);
+  assert.match(r, /badge —/);
+  assert.match(r, /next —/);
 });

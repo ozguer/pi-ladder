@@ -1,6 +1,6 @@
-// Gölge not çekirdeği.
-// Görünen notu değiştirmeden yeni notu yan yana üretir ve isteğe bağlı loglar.
-// Hiçbir koşulda throw etmez; kanca akışını durdurmaz.
+// Shadow note core.
+// Produces the new note side by side with the visible note and logs optionally.
+// Never throws; it does not stop the hook flow.
 
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -46,7 +46,7 @@ export function notGolge({ ctx, durum, izin, son, eskiMetin, logYolu, simdi } = 
         mkdirSync(dirname(logYolu), { recursive: true });
         appendFileSync(
           logYolu,
-          `${iso} | not | uzunluk=${uzunluk} uygun=${uygun} eski=${eski} fark=${fark}\n`,
+          `${iso} | note | length=${uzunluk} fits=${uygun} previous=${eski} delta=${fark}\n`,
           "utf8",
         );
         loglandi = true;

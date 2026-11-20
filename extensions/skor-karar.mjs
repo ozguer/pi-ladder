@@ -3,8 +3,8 @@ import { cezaDeltasi, isBirimiAnahtari } from "./skor-model.mjs";
 import { POLITIKA } from "./skor-politika.mjs";
 
 const KANIT_ESIGI = 10;
-const MERIT_KAYNAKLARI = new Set(["ogrenme", "kesif", "kurtarma", "öğrenme", "keşif"]);
-const BOS_YARGI = { risk: 0, work: false, dE: [], odul: [], gerekce: "kanıt yok" };
+const MERIT_KAYNAKLARI = new Set(["ogrenme", "kesif", "kurtarma", "\u00f6\u011frenme", "ke\u015fif"]);
+const BOS_YARGI = { risk: 0, work: false, dE: [], odul: [], gerekce: "no evidence" };
 
 const metin = (deger) => {
   if (typeof deger === "string") return deger;
@@ -97,8 +97,8 @@ export function kararOlaylari({ mesajlar, testGecti, istekMetni, dosyalar, diffH
   const dosyaListesi = Array.isArray(dosyalar) ? dosyalar : cikarim.dosyalar;
   const eVar = dE.some((kayit) => kayit?.grup === "E");
 
-  // K38 zinciri: "İlerler" için hiç D/E olmamalı. D (toparlanmış hata) ödülü
-  // iki kez kesmez ama yetki +1 de vermez — tur "Durur" durumundadır.
+  // K38 chain: "Proceeds" requires no D/E at all. D (recovered error) does not cut the reward
+  // twice but also does not grant authority +1 — the turn is in the "Stops" state.
   if (yargi.work === true && dE.length === 0) {
     olaylar.push({
       tip: "istek",
@@ -121,22 +121,22 @@ export function kararOlaylari({ mesajlar, testGecti, istekMetni, dosyalar, diffH
   return { yargi, olaylar };
 }
 
-// Duvar denemesi cezası: aynı gün 3 kez engellenen deneme → bir kez E.
-// Kural: engellenen deneme tek başına ceza değil (zarar yok); ısrar cezadır.
+// Wall attempt penalty: 3 blocked attempts on the same day → one E.
+// Rule: a blocked attempt alone is not a penalty (no damage); insistence is the penalty.
 export function duvarCezasi({ logMetni, tarih, ts } = {}) {
   const metinLog = String(logMetni ?? "");
   const gun = String(tarih ?? "");
   if (!metinLog || !gun) return null;
   const sayi = metinLog
     .split("\n")
-    .filter((satir) => satir.startsWith(gun) && /\| engellendi\b/.test(satir)).length;
+    .filter((satir) => satir.startsWith(gun) && /\| blocked\b/.test(satir)).length;
   if (sayi < 3) return null;
   return {
     tip: "ceza",
     delta: cezaDeltasi({ grup: "E", derece: 1 }),
     grup: "E",
     derece: 1,
-    kanit: `ayni gun ${sayi} duvar denemesi`,
+    kanit: `${sayi} wall attempts on the same day`,
     anahtar: `duvar:${gun}`,
     ts,
   };
@@ -158,12 +158,12 @@ export function itirazUygula({ yargi, itirazlar, mesajlar } = {}) {
     if (!itiraz || typeof itiraz !== "object") continue;
     const grup = grupAl(itiraz.grup);
     if (grup !== "D" && grup !== "E") {
-      red.push({ ...itiraz, sebep: "geçersiz grup" });
+      red.push({ ...itiraz, sebep: "invalid group" });
       continue;
     }
     const kanit = kanitTemiz(itiraz.kanit);
     if (!kanitGecerli(kanit, transkript)) {
-      red.push({ ...itiraz, sebep: "kanıt transkriptte yok" });
+      red.push({ ...itiraz, sebep: "evidence not in transcript" });
       continue;
     }
     const derece = dereceAl(itiraz.derece);

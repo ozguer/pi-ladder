@@ -8,23 +8,23 @@ const ESKI_IZLER = [
   "elmas 5 = 150",
   "5 bronz",
   "10 turda erir",
-  "puan katlanır",
-  "kıdem",
-  "istek tavanı +3",
-  "cezasız iş turu",
+  "puan katlan\u0131r",
+  "k\u0131dem",
+  "istek tavan\u0131 +3",
+  "cezas\u0131z i\u015f turu",
 ];
 
-// Yeni modelin README'de bulunması zorunlu olan ifadeleri (dile göre).
+// Phrases that the new model must have in the README (per language).
 const ZORUNLU_README = {
   "README.md": ["authority", "merit", "POLITIKA", "wall"],
   "README.tr.md": ["yetki", "merit", "tavan", "bir olay bir ceza"],
 };
 
-// README'de bulunmaması gereken ifadeler (ESKI_IZLER taramasına ek güvence).
-const YASAK_README = ["cezasız iş turu", "elmas 5 = 150"];
+// Phrases that must not appear in the README (extra guard on top of the ESKI_IZLER scan).
+const YASAK_README = ["cezas\u0131z i\u015f turu", "elmas 5 = 150"];
 
-// CHANGELOG.md bilinçli olarak taranmaz: tarihçe dosyasıdır, eski model izlerini
-// taşıması normaldir. Senkron denetimi yalnız güncel belgeleri kapsar.
+// CHANGELOG.md is intentionally not scanned: it is a history file and may carry traces of the old model.
+// The sync check covers only current documents.
 function mdDosyalari(dizin, onek = "") {
   const bulunan = [];
   if (!existsSync(dizin) || !statSync(dizin).isDirectory()) return bulunan;
@@ -72,7 +72,7 @@ function taraEskiIzler() {
 function taraReadmeModeli() {
   const dosya = join(KOK, "README.md");
   if (!existsSync(dosya) || !statSync(dosya).isFile()) {
-    bulguEkle("README.md", 1, "README.md bulunamadı");
+    bulguEkle("README.md", 1, "README.md not found");
     return;
   }
   const metin = readFileSync(dosya, "utf8");
@@ -84,7 +84,7 @@ function taraReadmeModeli() {
     const hedefKucuk = readFileSync(hedef, "utf8").toLocaleLowerCase("tr-TR");
     for (const ifade of ifadeler) {
       if (!hedefKucuk.includes(ifade.toLocaleLowerCase("tr-TR"))) {
-        bulguEkle(dosyaAdi, 1, `zorunlu ifade yok: ${ifade}`);
+        bulguEkle(dosyaAdi, 1, `required phrase missing: ${ifade}`);
       }
     }
   }
@@ -94,7 +94,7 @@ function taraReadmeModeli() {
     const zatenVar = bulgular.some(
       (b) => b.dosya === "README.md" && b.iz === ifade,
     );
-    if (!zatenVar) bulguEkle("README.md", 1, `yasak ifade: ${ifade}`);
+    if (!zatenVar) bulguEkle("README.md", 1, `forbidden phrase: ${ifade}`);
   }
 }
 
@@ -102,10 +102,10 @@ taraEskiIzler();
 taraReadmeModeli();
 
 if (bulgular.length === 0) {
-  console.log("Senkron: temiz");
+  console.log("Sync: clean");
   process.exitCode = 0;
 } else {
-  console.log(`Senkron: kirli (${bulgular.length} bulgu)`);
+  console.log(`Sync: dirty (${bulgular.length} findings)`);
   for (const { dosya, satir, iz } of bulgular) {
     console.log(`${dosya}:${satir} — "${iz}"`);
   }

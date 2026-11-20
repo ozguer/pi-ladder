@@ -54,7 +54,7 @@ test("eskiDurumOku: puan=107 → K50 tavanı yetki=15 (altın), ham puan saklan�
   assert.equal(durum.yetki, 15);
   assert.equal(durum.eskiPuan, 107);
   assert.equal(durum.merit, 0);
-  assert.equal(durum.kaynaklar.puanDosyasi, "okundu");
+  assert.equal(durum.kaynaklar.puanDosyasi, "read");
 });
 
 test("eskiDurumOku: birikim=50 → tavan 15, risk düşülmez", async (t) => {
@@ -84,8 +84,8 @@ test("eskiDurumOku: dosya yok → yetki=0, kaynak yok, throw yok", async (t) => 
 
   assert.equal(durum.yetki, 0);
   assert.equal(durum.merit, 0);
-  assert.equal(durum.kaynaklar.puanDosyasi, "yok");
-  assert.equal(durum.kaynaklar.scoreboardDosyasi, "yok");
+  assert.equal(durum.kaynaklar.puanDosyasi, "missing");
+  assert.equal(durum.kaynaklar.scoreboardDosyasi, "missing");
 });
 
 test("eskiDurumOku: bozuk JSON → yetki=0, kaynak bozuk", async (t) => {
@@ -97,7 +97,7 @@ test("eskiDurumOku: bozuk JSON → yetki=0, kaynak bozuk", async (t) => {
   const durum = eskiDurumOku({ puanDosyasi, scoreboardDosyasi: join(ev, "SCOREBOARD.md") });
 
   assert.equal(durum.yetki, 0);
-  assert.equal(durum.kaynaklar.puanDosyasi, "bozuk");
+  assert.equal(durum.kaynaklar.puanDosyasi, "corrupt");
 });
 
 test("gocOlayi: anahtar goc: + 16 hex, aynı girdi aynı anahtar", async (t) => {
@@ -131,7 +131,7 @@ test("gocYaz: kuru çalışma dosya oluşturmaz", async (t) => {
   });
 
   assert.equal(sonuc.yazildi, false);
-  assert.equal(sonuc.rapor, "kuru");
+  assert.equal(sonuc.rapor, "dry");
   assert.equal(existsSync(olayYolu), false);
 });
 
@@ -148,7 +148,7 @@ test("gocYaz: yazar, ikinci aynı anahtar tekrar sayılır ve satır artmaz", as
   });
   assert.equal(ilk.yazildi, true);
   assert.equal(ilk.tekrar, false);
-  assert.equal(ilk.rapor, "yazıldı");
+  assert.equal(ilk.rapor, "written");
   assert.equal(satirlariOku(olayYolu).length, 1);
 
   const ikinci = gocYaz({
@@ -159,7 +159,7 @@ test("gocYaz: yazar, ikinci aynı anahtar tekrar sayılır ve satır artmaz", as
   });
   assert.equal(ikinci.yazildi, false);
   assert.equal(ikinci.tekrar, true);
-  assert.equal(ikinci.rapor, "tekrar");
+  assert.equal(ikinci.rapor, "duplicate");
   assert.equal(satirlariOku(olayYolu).length, 1);
 });
 
@@ -191,7 +191,7 @@ test("main: --yaz yokken 0 döner ve olay dosyasına dokunmaz", async (t) => {
 
   assert.equal(kod, 0);
   assert.equal(existsSync(olayYolu), false);
-  assert.match(cikti, /göç: yetki=\d+ merit=0 kaynak=puan\((okundu|yok|bozuk)\) → kuru/);
+  assert.match(cikti, /migration: authority=\d+ merit=0 source=score\((read|missing|corrupt)\) -> dry/);
 });
 
 test("main: --yaz ile yazar, ikinci çalıştırma tekrar bildirir", async (t) => {
@@ -213,7 +213,7 @@ test("main: --yaz ile yazar, ikinci çalıştırma tekrar bildirir", async (t) =
     "--yaz",
   ]);
   assert.equal(ilk.kod, 0);
-  assert.match(ilk.cikti, /göç: yetki=15 merit=0 kaynak=puan\(okundu\) → yazıldı/);
+  assert.match(ilk.cikti, /migration: authority=15 merit=0 source=score\(read\) -> written/);
   assert.equal(satirlariOku(olayYolu).length, 1);
 
   const ikinci = await sessizMain(main, [
@@ -226,7 +226,7 @@ test("main: --yaz ile yazar, ikinci çalıştırma tekrar bildirir", async (t) =
     "--yaz",
   ]);
   assert.equal(ikinci.kod, 0);
-  assert.match(ikinci.cikti, /→ tekrar/);
+  assert.match(ikinci.cikti, /-> duplicate/);
   assert.equal(satirlariOku(olayYolu).length, 1);
 });
 
@@ -241,6 +241,6 @@ test("eskiDurumOku: scoreboard varsa okundu, yoksa yok", async (t) => {
   const varOlan = eskiDurumOku({ puanDosyasi, scoreboardDosyasi });
   const olmayan = eskiDurumOku({ puanDosyasi, scoreboardDosyasi: join(ev, "yok.md") });
 
-  assert.equal(varOlan.kaynaklar.scoreboardDosyasi, "okundu");
-  assert.equal(olmayan.kaynaklar.scoreboardDosyasi, "yok");
+  assert.equal(varOlan.kaynaklar.scoreboardDosyasi, "read");
+  assert.equal(olmayan.kaynaklar.scoreboardDosyasi, "missing");
 });

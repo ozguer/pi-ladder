@@ -24,38 +24,38 @@ const {
   oturumId,
 } = await import("../extensions/oturum.mjs");
 
-test("oturum: izinler oturum bazlıdır, A izni B'yi etkilemez", () => {
+test("session: permissions are per session; A's grant does not affect B", () => {
   izinYaz("A", "hep");
   const a = izinOku("A");
   assert.deepEqual(a, { kapsam: "hep", bitis: null });
   assert.equal(izinOku("B"), null);
 });
 
-test("oturum: 'sure' kapsamı bitişten sonra null döner", () => {
+test("session: 'sure' scope returns null after expiry", () => {
   izinYaz("S", "sure", { bitis: 1_000 });
   assert.deepEqual(izinOku("S", { now: 999 }), { kapsam: "sure", bitis: 1_000 });
   assert.equal(izinOku("S", { now: 1_000 }), null);
   assert.equal(izinOku("S", { now: 5_000 }), null);
 });
 
-test("oturum: 'yok' kapsamı null döner", () => {
+test("session: 'yok' scope returns null", () => {
   izinYaz("Y", "yok");
   assert.equal(izinOku("Y"), null);
 });
 
-test("oturum: bozuk izin JSON'u null döner", () => {
+test("session: corrupt permission JSON returns null", () => {
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(izinYolu("BOZUK"), "{bu bozuk");
   assert.equal(izinOku("BOZUK"), null);
   izinSil("BOZUK");
 });
 
-test("oturum: izinSil olmayan dosyada sessiz kalır", () => {
+test("session: izinSil stays quiet on a missing file", () => {
   assert.doesNotThrow(() => izinSil("HIC_YOK"));
   assert.equal(izinOku("HIC_YOK"), null);
 });
 
-test("oturum: oturumId yol enjeksiyonunu temizler, izinYolu DATA_DIR dışına çıkmaz", () => {
+test("session: oturumId sanitizes path injection; izinYolu stays inside DATA_DIR", () => {
   const id = oturumId({ sessionId: "../kötü yol" });
   assert.match(id, /^[A-Za-z0-9_-]+$/);
   assert.ok(!id.includes(".."));
@@ -68,12 +68,12 @@ test("oturum: oturumId yol enjeksiyonunu temizler, izinYolu DATA_DIR dışına �
   }
 });
 
-test("oturum: oturumId ctx yoksa 'bilinmeyen' döner", () => {
-  assert.equal(oturumId({}), "bilinmeyen");
-  assert.equal(oturumId(null), "bilinmeyen");
+test("session: oturumId returns 'unknown' without ctx", () => {
+  assert.equal(oturumId({}), "unknown");
+  assert.equal(oturumId(null), "unknown");
 });
 
-test("oturum: oturumId sırayla sessionManager, sessionId, env kullanır", () => {
+test("session: oturumId uses sessionManager, sessionId, env in order", () => {
   assert.equal(
     oturumId({
       sessionManager: { getSessionId: () => "sm-1" },
@@ -93,13 +93,13 @@ test("oturum: oturumId sırayla sessionManager, sessionId, env kullanır", () =>
   }
 });
 
-test("oturum: oturumId 64 karaktere kırpar", () => {
+test("session: oturumId truncates to 64 characters", () => {
   const id = oturumId({ sessionId: "a".repeat(200) });
   assert.equal(id.length, 64);
   assert.match(id, /^[A-Za-z0-9_-]+$/);
 });
 
-test("oturum: bildirim turu çalışır ve A bildirimi B'yi ezmez", () => {
+test("session: notification round works; A's notification does not overwrite B's", () => {
   const veri = { sayfa: 3, not: "deneme" };
   bildirimYaz("A", veri);
   assert.deepEqual(bildirimOku("A"), veri);
@@ -115,7 +115,7 @@ test("oturum: bildirim turu çalışır ve A bildirimi B'yi ezmez", () => {
   bildirimTemizle("B");
 });
 
-test("oturum: bildirimYaz atomik yazar ve .tmp bırakmaz", () => {
+test("session: bildirimYaz writes atomically and leaves no .tmp", () => {
   bildirimYaz("ATOMIK", { x: 1 });
   const ham = readFileSync(bildirimYolu("ATOMIK"), "utf8");
   assert.deepEqual(JSON.parse(ham), { x: 1 });
@@ -127,7 +127,7 @@ test("oturum: bildirimYaz atomik yazar ve .tmp bırakmaz", () => {
   assert.equal(bildirimOku("ATOMIK"), null);
 });
 
-test("oturum: altAjanMi env bayrağına bakar", () => {
+test("session: altAjanMi checks the env flag", () => {
   assert.equal(altAjanMi({ PI_SUBAGENT_CHILD: "1" }), true);
   assert.equal(altAjanMi({}), false);
   assert.equal(altAjanMi({ PI_SUBAGENT_CHILD: "0" }), false);

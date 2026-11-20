@@ -1,5 +1,5 @@
-// Skor defterinin görünümü: saf metin üretimi, IO yok.
-// Kaynak olay günlüğüdür; SCOREBOARD.md ve ROZET.md buradan yeniden yazılır.
+// Scoreboard view: pure text generation, no IO.
+// The source is the event log; SCOREBOARD.md and ROZET.md are rewritten from it.
 
 import { durumHesapla } from "./skor-model.mjs";
 import { kazanilanRozet, sonrakiRozet, rutbeAdi } from "./skor-politika.mjs";
@@ -56,35 +56,35 @@ export function skorbordMetni({ durum, satirlar, tarih } = {}) {
     const rank = Number.isInteger(d.rank) ? rutbeAdi(d.rank) : TIRE;
 
     return [
-      "# Skorboard",
+      "# Scoreboard",
       "",
-      "## Durum",
+      "## State",
       "",
-      `- Yetki ${metin(d.yetki)}`,
+      `- Authority ${metin(d.yetki)}`,
       `- Merit ${metin(d.merit)}`,
-      `- Rütbe ${rank}`,
-      `- Aktif ${d.aktif === true ? "evet" : d.aktif === false ? "hayır" : TIRE}`,
-      `- Bugün ${metin(isBirimi)}/${metin(tavan)} iş birimi`,
-      `- Tekrar ${metin(tekrar)}`,
-      `- Tarih ${tarihMetni(tarih)}`,
+      `- Rank ${rank}`,
+      `- Active ${d.aktif === true ? "yes" : d.aktif === false ? "no" : TIRE}`,
+      `- Today ${metin(isBirimi)}/${metin(tavan)} work units`,
+      `- Duplicates ${metin(tekrar)}`,
+      `- Date ${tarihMetni(tarih)}`,
       "",
-      "## Ceza",
+      "## Penalties",
       "",
-      "| # | Tarih | Grup | Derece | Kural | İhlal | Kanıt | Düzeltme | Puan |",
+      "| # | Date | Group | Degree | Rule | Violation | Evidence | Correction | Points |",
       "|---|---|---|---|---|---|---|---|---|",
       ...ceza.map(cezaSatiri),
       "",
-      "## Ödül",
+      "## Rewards",
       "",
-      "| # | Tarih | Ne işe yaradı | Kanıt | Puan |",
+      "| # | Date | What it was for | Evidence | Points |",
       "|---|---|---|---|---|",
       ...odul.map(odulSatiri),
       "",
-      "Bu defter görünümüdür; kaynak olay günlüğüdür.",
+      "This is a view; the source is the event log.",
       "",
     ].join("\n");
   } catch {
-    return "# Skorboard\n\nBu defter görünümüdür; kaynak olay günlüğüdür.\n";
+    return "# Scoreboard\n\nThis is a view; the source is the event log.\n";
   }
 }
 
@@ -95,25 +95,25 @@ export function rozetMetni({ durum, gecmis, tarih } = {}) {
     const kazanilan = merit === null ? null : kazanilanRozet(merit);
     const sonraki = merit === null ? null : sonrakiRozet(merit);
     const kalan = sonraki && merit !== null ? Math.max(0, sonraki.merit - merit) : null;
-    const rozet = merit === null ? TIRE : kazanilan ?? "yok";
+    const rozet = merit === null ? TIRE : kazanilan ?? "none";
     const rank = Number.isInteger(d.rank) ? rutbeAdi(d.rank) : TIRE;
 
     const liste = Array.isArray(gecmis) ? gecmis.filter((satir) => satir && typeof satir === "object") : [];
     const son = liste.slice(-20).reverse();
 
     return [
-      "# Rozetler",
+      "# Badges",
       "",
-      "## Durum",
+      "## State",
       "",
       `- Merit ${metin(merit)}`,
-      `- Rütbe ${rank}`,
-      `- Durum: rozet ${rozet} · sıradaki ${sonraki ? `${sonraki.ad} (${sonraki.merit})` : TIRE} · kalan ${metin(kalan)}`,
-      `- Tarih ${tarihMetni(tarih)}`,
+      `- Rank ${rank}`,
+      `- Status: badge ${rozet} · next ${sonraki ? `${sonraki.ad} (${sonraki.merit})` : TIRE} · remaining ${metin(kalan)}`,
+      `- Date ${tarihMetni(tarih)}`,
       "",
-      "## Geçmiş",
+      "## History",
       "",
-      "| Tarih | Olay | Rozet | Sebep |",
+      "| Date | Event | Badge | Reason |",
       "|---|---|---|---|",
       ...son.map(
         (satir) =>
@@ -122,7 +122,7 @@ export function rozetMetni({ durum, gecmis, tarih } = {}) {
       "",
     ].join("\n");
   } catch {
-    return "# Rozetler\n\n## Durum\n\n- Durum: rozet — · sıradaki — · kalan —\n";
+    return "# Badges\n\n## State\n\n- Status: badge — · next — · remaining —\n";
   }
 }
 
