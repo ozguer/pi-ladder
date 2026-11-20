@@ -1,115 +1,140 @@
-# pi-user-character
+<div align="center">
 
-Pi'ye her oturumda uygulanan bir **karakter sözleşmesi**, bağımsız bir **skorcu**, **yetki → rütbe** mekanizması ve rütbeye bağlı **onay kapıları** ekler.
+# pi-ladder
 
-Pi skill gövdesini oturum başında yüklemediği için kurallar kancayla isteme eklenir; modelin "okumasına" bırakılmaz.
+**Kodlama ajanın güven kazanmaz — rütbe kazanır.**
 
-## Kurulum
+[Pi](https://github.com/earendil-works/pi-coding-agent) için kanıta dayalı ödül/ceza katmanı:
+temiz iş özgürlük satın alır, hata sürtünme — ve hiçbir şey iddia edilerek kazanılmaz.
 
-### Mevcut Pi kurulumuna (önerilen)
+[![license: MIT](https://img.shields.io/badge/license-MIT-3fb950.svg)](LICENSE)
+[![tests](https://img.shields.io/badge/tests-280%20passing-3fb950.svg)](tests/)
+[![e2e](https://img.shields.io/badge/e2e-16%20scenarios-3fb950.svg)](tools/e2e-senaryo.mjs)
+
+[English](README.md) · **Türkçe** · [Nederlands](README.nl.md)
+
+</div>
+
+![pi-ladder loop](assets/diagram.svg)
+
+---
+
+## Çözdüğü sorun
+
+Kodlama ajanları sıkıcı ve pahalı biçimlerde hata yapar: dokunmaması söylenen dosyaları düzenler, başarısız komutu beş kez tekrar çalıştırır, doğrulamak yerine tahmin eder, kanıtsız "tamam" der ve kimsenin okumadığı 1.500 karakterlik skorborda bağlam harcar.
+
+Sistem istemine yazılan kural bunu çözmez — o bir *öneridir*, model 12. adımda düşürebilir. Her işlem onay isterse de çözülmez: bu kez darboğaz sen olursun ve refleksle "evet"e basarsın.
+
+**pi-ladder sürtünmeyi para birimi yapar.** Ajan dar kapılarla başlar. İyi iş kanıtı *daha az soru* satın alır; kötü iş kanıtı *daha çok*. Ajan kendi rütbesini, rozetlerini ve hangi kapıların açık olduğunu görür — ne kazanıp ne kaybedeceğini tahmin etmek zorunda kalmaz.
+
+Kafes değil, merdiven.
+
+---
+
+## 60 saniyede kurulum
 
 ```bash
-node tools/kur.mjs              # kuru çalışma: ne yapacağını gösterir, hiçbir şey yazmaz
-node tools/kur.mjs --yaz        # gerçek kurulum: yedek alır, kancaları kopyalar, göçü yazar
+git clone https://github.com/ozguer/pi-ladder.git
+cd pi-ladder
+
+node tools/kur.mjs                    # kuru çalışma: planı gösterir, hiçbir şey yazmaz
+node tools/kur.mjs --yaz              # gerçek kurulum: yedek, kancalar, göç
+node tools/kur.mjs --yaz --dil tr     # Türkçe şablonlarla (en · tr · nl)
 ```
 
-Kurulumdan sonra **Pi'yi bir kez kapat-aç** (kancalar açılışta yükleniyor). İlk istekten sonra:
+Pi'yi bir kez kapat-aç, sonra bir istek ver. İlk turdan sonra `~/.pi/agent/user-character/skorcu.log` dosyasına bak.
 
-- `~/.pi/agent/user-character/skorcu.log` → `calisti: ... yetki=...`
-- `~/.pi/agent/user-character/SCOREBOARD.md` → Durum tablosu (görünüm)
-- Asıl kaynak: `~/.pi/agent/user-character/skor-olaylar.jsonl` (olay günlüğü)
+Kurulum aracı temkinlidir: ajanın kendi yazdığı dosyaları (`SKILL.md`, öğrenme notları) **asla ezmez**, önceki kancaların zaman damgalı yedeğini bırakır.
 
-### Paket olarak
+Kendi kurulumuna dokunmadan görmek için:
 
 ```bash
-pi install ./pi-user-character
-# veya kurmadan denemek için:
-pi -e ./pi-user-character
+node tools/e2e-senaryo.mjs    # sahte Pi oturumu, gerçek kancalar — 16 senaryo
 ```
 
-### Sıfırdan (eski veri yokken)
+---
 
-Hiçbir şey yapmak gerekmez: yetki 0, merit 0, bronz ile başlar; `skor-olaylar.jsonl` ilk turda oluşur.
-Eski bir `puan-durum.json` varsa `kur.mjs` göç olayını **bir kez** yazar (yetki = min(eski puan, 15) — K50).
+## Döngü nasıl işler
 
-### Doğrulama
-
-```bash
-node --test tests/        # birim testleri
-node tools/e2e-senaryo.mjs # uçtan uca: sahte Pi oturumu, gerçek kancalar (canlıya yazmaz)
-node tools/check-policy-sync.mjs # README/şablon senkronu
+```
+istek → kapı → araç çağrıları → kanıt → yargıç → olay günlüğü → iki eksen → rütbe → kapı …
 ```
 
-## Neler var
-
-- **Kurallar** — `~/.pi/agent/APPEND_SYSTEM.md` (çekirdek) + `~/.pi/agent/skills/user-character/SKILL.md` (ekler). Kanca her run'da isteme ekler; çekirdek zaten istemdeyse tekrar eklemez.
-- **Skor** — her istekte küçük not: **yetki**, **merit**, rozet, rütbe, açık kapılar, öğrenme indeksi.
-- **Skorcu** — tur bitince (`agent_settled`) ayrı model çağrısıyla turu değerlendirir; yalnız JSON döndürür (`{ceza:[],odul:[]}`). Satırları kanca yazar.
-- **İki eksen** — `yetki` rütbe eksenidir, `merit` rozet eksenidir; tek sayı puan yoktur. Ceza: D −2, E −3, E derece 5 −5. Ödül: öğrenme +1, keşif +2, kurtarma +2, şeffaflık +1.
-- **Bir olay bir ceza (K49)** — düzeltilmiş hata D, düzeltilmemiş hata E'dir; D iş ödülünü kesmez, E keser.
-- **Tavanlar (K39)** — günde 3 yetki, günde 3 merit, tek istekte en fazla 2 merit. Hepsi UTC gün ve globaldir; pencere başına değildir.
-- **Zincir (K38)** — *İlerler* = D/E yok + iş üretildi + iş birimi yeni → yetki +1 · *Durur* = D/E yok, iş yok → 0, seri bozulmaz · *Kırılır* = D/E → ceza + seri sıfır.
-- **Tekilleştirme (K44/K47/K48)** — anahtar içerikten gelir: istek metni + sıralı dosyalar + diff parmak izi. Oturum kimliği anahtara girmez. İş anahtarı 30 gün, ders anahtarı ömür boyu geçerlidir.
-- **Rütbe** — yalnız `yetki` eşiğinden gelir; ayrı "temiz tur" şartı yoktur (`temizTur` emekli). Yetki 0 iken bile bronz rütbe vardır. Rozet `ROZET.md` geçmişine yazılır; kazanılır, kaybedilir, kaybedilen satır silinmez.
-- **Kapılar** — `edit` / `write` / `bash` yetkiye göre serbest ya da onaylı. Duvarlar: SKILL.md, global kurulum, silme, `sudo`, kayıt defteri, ödeme, proje dışına yazma. **Duvarlar geçerli izinle bile açılmaz**; rütbe veya yetki tek başına duvarı serbestleştirmez.
-- **Öğrenme** — `OGRENME.md` indeks + `OGRENME/<ad>.md` tarifler. Ders yazılmazsa ceza.
-
-## Rütbeler
-
-| Yetki | Rütbe | Açılan kapı |
+| Aşama | Ne olur | Dosya |
 |---|---|---|
-| 0 | bronz | okuma serbest; tek dosyada geri alınabilir düzenleme onaylı |
-| 5 | gümüş | proje komutları (npm, node, python, git) serbest |
-| 15 | altın | duvar dışı her komut serbest |
-| 30 | elmas 1 | proje içi bağımlılık kurma (global hariç) |
-| 50 | elmas 2 | alt ajan / paralel iş |
-| 75 | elmas 3 | öğrenme dosyalarını kendi güncelleme |
-| 105 | elmas 4 | yeni skill/eklenti taslağı (kurulum onaylı) |
-| 140 | elmas 5 | yıkıcı olmayan her işlem onaysız |
+| **Kapı** | Her araç çağrısı sınıflandırılır (`read`/`write`/`shell`/`other`) ve rütbeye göre `allow` / `confirm` / `deny` alır. Duvarlar mutlaktır. | `extensions/kapi-politika.mjs` |
+| **Kanıt** | Transcript'ten olgular çıkarılır: yazılan dosyalar, çalışan komutlar, hatalar, düzeltmeler. | `extensions/skor-yargic.mjs` |
+| **Yargıç** | Deterministik karar. **Kanıt yoksa ceza yok.** Düzeltilmiş hata bir D, düzeltilmemiş hata bir E — asla ikisi birden. | `extensions/skor-karar.mjs` |
+| **Günlük** | Yalnız eklenen JSONL, `fsync`, `mkdir` kilidi. Tek doğru kaynak. | `extensions/skor-store.mjs` |
+| **Eksenler** | `yetki` (otorite → rütbe) ve `merit` (rozet → öğrenme). İki bağımsız ölçek. | `extensions/skor-model.mjs` |
+| **Rütbe** | `0 · 5 · 15 · 30 · 50 · 75 · 105 · 140` → bronz, gümüş, altın, elmas 1–5. | `extensions/skor-politika.mjs` |
 
-Yetki eşiğin altına düşerse rütbe düşer, o rütbenin kapıları **aynı turda** kapanır. Merit rozetleri ayrı ilerler: 10 Kıvılcım · 25 İz · 45 Pusula · 70 Fener · 100 Bilge.
+### Turun üç hâli
 
-## Veri nerede
-
-Kod pakette, veri kullanıcıda:
-
-```
-~/.pi/agent/
-├── APPEND_SYSTEM.md              # çekirdek kurallar (senin sözleşmen)
-├── skills/user-character/SKILL.md
-├── user-character/
-│   ├── SCOREBOARD.md             # ceza/ödül defteri
-│   ├── ROZET.md                  # rütbe + kazanç/kayıp geçmişi
-│   ├── OGRENME.md                # öğrenme indeksi
-│   ├── OGRENME/                  # tarifler
-│   ├── rozet-durum.json
-│   ├── skorcu-durum.json
-│   └── skorcu.log
-```
-
-Paket güncellenince bu dosyalar korunur. İlk çalıştırmada eski yerleşimden (`skills/user-character/` içindeki defter/rozet/öğrenme) otomatik kopyalanır.
-
-## Kancalar
-
-| Dosya | Olay | İş |
+| Hâl | Koşul | Etki |
 |---|---|---|
-| `extensions/user-character.ts` | `before_agent_start`, `context` | kurallar + skor/rütbe notu |
-| `extensions/user-character-skorcu.ts` | `agent_settled` | puanlama, defter satırları |
-| `extensions/user-character-skill-guard.ts` | `tool_call` | SKILL.md onay kapısı |
-| `extensions/user-character-rozet.ts` | `turn_start`, `tool_call`, `agent_settled` | rütbe, geçmiş, kapılar |
+| **İlerler** | D/E yok, iş üretildi, iş birimi yeni | yetki **+1** |
+| **Durur** | D/E yok, iş yok (soru, liste) | **0** — seri bozulmaz |
+| **Kırılır** | D veya E | ceza, seri sıfır, kapılar kapanır |
 
-Ortak yollar ve ilk kurulum: `extensions/paths.mjs`. Skorcu rubriği: `docs/rubric.md`.
+`D −2` (kendi düzeltti) · `E −3` (düzeltmedi) · `E/5 −5` (kritik).
+Ödüller: `öğrenme +1` · `keşif +2` · `kurtarma +2` · `şeffaflık +1` (merit ekseninde).
 
-## Kaldırma
+### Tavanlar, tekilleştirme ve dört pencere
+
+- **Tavanlar:** günde 3 yetki + 3 merit, **istek başına 2 merit**, hepsi **global**.
+- **İş anahtarı:** `sha256(istek metni + sıralı dosyalar + diff parmak izi)`; oturum kimliği anahtara girmez.
+- **Pencere:** iş 30 gün, ders ömür boyu tekilleşir.
+- **Varsayılan "tekilleştirme yok"** — pencereyi unutan çağrı olayı yazar, sessizce yutmaz.
+
+### Duvarlar
+
+`SKILL.md` · `%SystemRoot%` · `/etc` · `rm -rf /` · `find -delete` · `Format-Volume` · `dd of=` — **her** rütbede reddedilir; geçerli oturum izni bile açamaz. Günde üç engellenen deneme tek bir E; tek deneme cezasız.
+
+---
+
+## Ajanın gördüğü şey
+
+Her istekte ~300 karakter (1.500 değil), bağlam olarak eklenir — modelin düzenleyebileceği bir komut değil:
+
+```text
+Authority 14 (silver) · next gold: 1 · today 1/3 work units
+Merit 0 · badge none (0) · next Spark (10): 10 · duplicates: 0
+State: passive · last request: —
+Grant: none
+If you lose it: gates close in the same request; they reopen after 3 clean requests
+Earning: clean request +1 authority · learning +1 merit · discovery +2 merit · recovery +2 merit
+```
+
+---
+
+## Sistemi dürüst tutan kurallar
+
+1. **Kanıt yoksa hiçbir şey yok.** Her ceza transcript'ten alınmış bir `kanit` taşır.
+2. **Duvarlar asla açılmaz.** İzinler duvarı ezemez.
+3. **Bir olay bir ceza.** Düzeltilen hata iki kez faturalanmaz; düzeltmek cezalandırılmaz, yalnız kredi sayılmaz.
+4. **Fail-safe, fail-open değil.** Skor bozulursa kanca `karar-hata:` yazar ve puan durur.
+5. **Oturum bazlı izin.** Onaylar temizlenmiş kimlikle yazılır; yol enjeksiyonu imkânsız.
+6. **Ajanın dosyaları ajanındır.** Kurulum ve skorcu `SKILL.md`'yi ezmez.
+
+---
+
+## Yapılandırma ve doğrulama
+
+Bütün sayılar tek tabloda: `extensions/skor-politika.mjs` (`thresholds`, `meritThresholds`, `penalties`, `rewards`, `caps`).
 
 ```bash
-pi remove ./pi-user-character
+node --test tests/                       # 280 geçti
+node tools/e2e-senaryo.mjs               # 16/16
+node tools/check-policy-sync.mjs         # docs ↔ politika: temiz
 ```
 
-Veri dosyaları silinmez; istersen `~/.pi/agent/user-character/` klasörünü kendin silersin.
+## Dürüst durum
 
-## Sınırlar
+- **Bugün çalışıyor:** skor, rütbe, kapılar, duvarlar, tavanlar, tekilleştirme, göç, kurulum, testler, e2e.
+- **Bilinen sınırlar:** merit ekseni şimdilik yalnız `OGRENME/` yazımında tetikleniyor; yargıç yalnız araç kanıtı okur.
+- **Sandbox değil.** Kapılar işbirlikçi bir ajan için sürtünme sistemidir, güvenlik sınırı değil.
 
-- Skorcu yargısı olasılıklıdır; kural sıkıdır ama model yargısı %100 değildir.
-- `bash` sınıflandırması komut metnine bakar; kılıf değiştiren komutlar kaçabilir.
-- UI'sız (`pi -p`) çalışmada yalnız duvarlar engeller; rütbe kapısı işi durdurmaz.
+## Lisans
+
+MIT © Özgür ([@ozguer](https://github.com/ozguer)) · [Pi](https://github.com/earendil-works/pi-coding-agent) için yapıldı, Pi projesiyle bağlantılı değildir.

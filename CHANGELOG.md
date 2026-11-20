@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-11-20
+
+### Changed
+- All agent-facing output, gate reasons, wall names, view files and tool output are now **English**.
+- Documentation is **tri-lingual**: English (main), Turkish, Dutch — `README.md`, `README.tr.md`, `README.nl.md`; agent templates in `templates/en|tr|nl` (`kur.mjs --dil en|tr|nl`).
+- The LLM rubric moved to English (`docs/rubric.md`); the Turkish original is kept as `docs/rubric.tr.md`.
+
+### Unchanged
+- Behaviour, thresholds, penalties, caps and the on-disk event schema (`request|penalty|migration|merit|legacy`). Existing logs keep working via type aliases.
+
 ## [1.0.0] — 2026-11-20
 
 First public release.

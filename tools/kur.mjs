@@ -44,7 +44,8 @@ const extDosyalar = readdirSync(kaynakExt).filter((ad) => ad.endsWith(".ts") || 
 ekle(`hooks/modules: ${extDosyalar.length} files -> ${hedefExt}`);
 
 // 2. Templates (written only if missing: does not overwrite files the agent learned)
-const dil = String(arg("--dil", "en")).toLowerCase() === "tr" ? "tr" : "en";
+const dilIstek = String(arg("--dil", "en")).toLowerCase();
+const dil = ["en", "tr", "nl"].includes(dilIstek) ? dilIstek : "en";
 const kaynakTpl = existsSync(join(KOK, "templates", dil)) ? join(KOK, "templates", dil) : join(KOK, "templates");
 const hedefSkill = join(hedefKok, "skills", "user-character");
 const tplDosyalar = existsSync(kaynakTpl) ? readdirSync(kaynakTpl).filter((ad) => ad.endsWith(".md")) : [];

@@ -1,6 +1,6 @@
 {
   "name": "pi-ladder",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Evidence-driven reward/penalty layer for Pi: two-axis scoring (authority + merit), an evidence-only judge, rank-gated permissions, and an append-only event log.",
   "keywords": [
     "pi-package",
@@ -29,6 +29,7 @@
     "assets/",
     "README.md",
     "README.tr.md",
+    "README.nl.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
