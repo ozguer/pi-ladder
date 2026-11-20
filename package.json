@@ -1,0 +1,44 @@
+{
+  "name": "pi-ladder",
+  "version": "1.0.0",
+  "description": "Evidence-driven reward/penalty layer for Pi: two-axis scoring (authority + merit), an evidence-only judge, rank-gated permissions, and an append-only event log.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "coding-agent",
+    "agent-harness",
+    "reward",
+    "permissions"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./extensions/user-character.ts",
+      "./extensions/user-character-skorcu.ts",
+      "./extensions/user-character-skill-guard.ts",
+      "./extensions/user-character-rozet.ts"
+    ],
+    "changelogPath": "./CHANGELOG.md"
+  },
+  "files": [
+    "extensions/",
+    "templates/",
+    "tools/",
+    "docs/",
+    "assets/",
+    "README.md",
+    "README.tr.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test tests/",
+    "e2e": "node tools/e2e-senaryo.mjs",
+    "check": "node tools/check-policy-sync.mjs",
+    "kur": "node tools/kur.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
